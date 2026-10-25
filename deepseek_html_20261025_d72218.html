@@ -1,0 +1,2450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Blocky World 7.0 — Multiplayer Fixed</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+body { overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; background: #000; color: white; touch-action: none; }
+canvas { display: block; }
+#hud { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+#top-bar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 20; }
+.badge { padding: 8px 18px; border-radius: 20px; font-weight: bold; letter-spacing: 1px; font-size: 13px; border: 2px solid white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+.badge-roblox { background: linear-gradient(135deg, #e2231a, #ff4500); }
+.badge-minecraft { background: linear-gradient(135deg, #3c8527, #7cb342); }
+.badge-v7 { background: linear-gradient(135deg, #a020f0, #ff00ff); }
+#crosshair { position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; transform: translate(-50%, -50%); pointer-events: none; z-index: 15; }
+#crosshair::before, #crosshair::after { content: ''; position: absolute; background: white; box-shadow: 0 0 3px black; }
+#crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+#crosshair::after { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+#crosshair-dot { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: #ffcc00; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 4px black; }
+#hotbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 8px; background: rgba(20,20,20,0.85); border-radius: 10px; border: 2px solid rgba(160,32,240,0.5); box-shadow: 0 4px 20px rgba(0,0,0,0.6); pointer-events: auto; z-index: 20; }
+.slot { width: 58px; height: 58px; background: rgba(60,60,60,0.9); border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: all 0.15s; overflow: hidden; }
+.slot:hover { border-color: rgba(160,32,240,0.7); transform: translateY(-2px); }
+.slot.active { border-color: #a020f0; box-shadow: 0 0 15px rgba(160,32,240,0.8); background: rgba(160,32,240,0.2); }
+.slot-color { width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.5); box-shadow: inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.3); }
+.slot-number { position: absolute; top: 2px; left: 4px; font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.7); text-shadow: 1px 1px 1px black; }
+.slot-count { position: absolute; top: 2px; right: 4px; font-size: 12px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px black; background: rgba(0,0,0,0.6); border-radius: 4px; padding: 0 4px; }
+.slot-name { position: absolute; bottom: 2px; left: 0; width: 100%; text-align: center; font-size: 9px; color: rgba(255,255,255,0.85); text-shadow: 1px 1px 1px black; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; padding: 0 2px; }
+#stats { position: absolute; top: 15px; left: 15px; background: rgba(20,20,20,0.8); border-radius: 10px; padding: 12px 16px; font-size: 13px; line-height: 1.7; border-left: 4px solid #a020f0; box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(6px); min-width: 220px; }
+#stats .stat-row { display: flex; justify-content: space-between; gap: 15px; }
+#stats .stat-label { color: #aaa; }
+#stats .stat-value { color: #d4a0ff; font-weight: bold; }
+#vitals { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); display: flex; gap: 30px; z-index: 20; pointer-events: none; }
+.vital-bar { display: flex; align-items: center; gap: 6px; background: rgba(20,20,20,0.75); padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); }
+.vital-icon { font-size: 18px; }
+.vital-track { width: 100px; height: 10px; background: rgba(60,60,60,0.9); border-radius: 5px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6); }
+.vital-fill { height: 100%; transition: width 0.3s; border-radius: 5px; }
+.health-fill { background: linear-gradient(90deg, #ff2244, #ff5566); }
+.hunger-fill { background: linear-gradient(90deg, #cc7722, #ffaa44); }
+.vital-value { font-size: 12px; font-weight: bold; color: #fff; min-width: 40px; text-shadow: 1px 1px 1px black; }
+#controls-info { position: absolute; bottom: 20px; left: 20px; background: rgba(20,20,20,0.75); border-radius: 10px; padding: 12px 16px; font-size: 12px; line-height: 1.8; border: 1px solid rgba(160,32,240,0.4); backdrop-filter: blur(6px); max-width: 260px; }
+#controls-info .key { display: inline-block; background: rgba(80,80,80,0.9); border: 1px solid #aaa; border-radius: 4px; padding: 1px 7px; margin: 0 3px; font-weight: bold; color: #d4a0ff; font-size: 11px; font-family: monospace; }
+#time-panel { position: absolute; top: 15px; right: 15px; background: rgba(20,20,20,0.8); border-radius: 10px; padding: 10px 14px; font-size: 13px; border-right: 4px solid #a020f0; box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(6px); text-align: right; min-width: 130px; }
+#time-icon { font-size: 20px; }
+#time-text { color: #d4a0ff; font-weight: bold; font-size: 15px; }
+#time-phase { font-size: 11px; color: #aaa; margin-top: 2px; }
+#weather-icon { font-size: 14px; margin-top: 4px; }
+#net-status { font-size: 11px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); }
+.net-online { color: #00ff88; }
+.net-offline { color: #ff4444; }
+#minimap-container { position: absolute; bottom: 20px; right: 20px; width: 170px; height: 170px; border-radius: 50%; overflow: hidden; border: 3px solid rgba(160,32,240,0.7); box-shadow: 0 4px 20px rgba(0,0,0,0.7); background: rgba(20,20,20,0.85); z-index: 20; }
+#minimap { width: 100%; height: 100%; display: block; }
+#minimap-label { position: absolute; bottom: 4px; left: 0; width: 100%; text-align: center; font-size: 10px; color: rgba(255,255,255,0.7); text-shadow: 1px 1px 1px black; pointer-events: none; }
+#pause-menu { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(10px); }
+#pause-menu.active { display: flex; }
+.pause-content { background: linear-gradient(135deg, rgba(40,40,50,0.95), rgba(20,20,30,0.95)); border-radius: 20px; padding: 35px 45px; text-align: center; border: 2px solid rgba(160,32,240,0.5); box-shadow: 0 20px 60px rgba(0,0,0,0.8); max-width: 620px; max-height: 90vh; overflow-y: auto; }
+.pause-title { font-size: 30px; margin-bottom: 8px; background: linear-gradient(90deg, #e2231a, #a020f0, #3c8527); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 900; letter-spacing: 2px; }
+.pause-subtitle { color: #aaa; margin-bottom: 25px; font-size: 13px; }
+.pause-btn { display: block; width: 100%; padding: 12px 24px; margin: 8px 0; background: linear-gradient(135deg, #a020f0, #ff00ff); border: none; border-radius: 10px; color: white; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px; }
+.pause-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(160,32,240,0.5); }
+.pause-btn.secondary { background: linear-gradient(135deg, #3c8527, #7cb342); }
+.pause-btn.secondary:hover { box-shadow: 0 8px 20px rgba(60,133,39,0.5); }
+.pause-btn.tertiary { background: linear-gradient(135deg, #333, #555); }
+.pause-btn.tertiary:hover { box-shadow: 0 8px 20px rgba(80,80,80,0.5); }
+.settings-group { text-align: left; margin: 15px 0; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; }
+.settings-group h4 { color: #d4a0ff; margin-bottom: 10px; font-size: 13px; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 12px; color: #ccc; gap: 10px; }
+.settings-row input[type=range] { width: 140px; }
+.settings-row input[type=checkbox] { width: 16px; height: 16px; }
+.settings-row input[type=text] { width: 140px; padding: 4px 8px; background: #222; border: 1px solid #555; border-radius: 4px; color: #d4a0ff; font-size: 11px; font-family: monospace; }
+#mobile-controls { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+#mobile-controls.active { display: block; }
+.joystick-base { position: absolute; bottom: 100px; left: 25px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4); pointer-events: auto; touch-action: none; }
+.joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; border-radius: 50%; background: rgba(160,32,240,0.7); border: 2px solid white; transform: translate(-50%, -50%); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+.mobile-btn { position: absolute; width: 70px; height: 70px; border-radius: 50%; background: rgba(160,32,240,0.5); border: 2px solid rgba(255,255,255,0.6); color: white; font-size: 22px; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: none; font-weight: bold; text-shadow: 1px 1px 2px black; }
+#btn-jump { bottom: 110px; right: 25px; background: rgba(60,133,39,0.6); }
+#btn-place { bottom: 195px; right: 25px; background: rgba(226,35,26,0.6); font-size: 14px; }
+#btn-break { bottom: 195px; right: 110px; background: rgba(60,60,60,0.6); font-size: 14px; }
+#btn-fly { bottom: 280px; right: 25px; background: rgba(100,100,255,0.5); font-size: 14px; }
+#btn-eat { bottom: 280px; right: 110px; background: rgba(200,120,30,0.6); font-size: 14px; }
+#notification { position: absolute; top: 100px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(20,20,20,0.95); color: white; padding: 12px 24px; border-radius: 10px; border-left: 4px solid #a020f0; font-size: 14px; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 50; box-shadow: 0 8px 25px rgba(0,0,0,0.6); max-width: 80vw; }
+#notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#achievements { position: fixed; top: 80px; right: 15px; background: rgba(20,20,20,0.9); border-radius: 10px; padding: 12px; max-width: 260px; z-index: 25; border: 2px solid #a020f0; box-shadow: 0 4px 20px rgba(0,0,0,0.6); transform: translateX(300px); transition: transform 0.3s; }
+#achievements.show { transform: translateX(0); }
+#achievements h4 { color: #d4a0ff; margin-bottom: 8px; font-size: 13px; }
+.achievement-item { padding: 6px 8px; margin: 4px 0; background: rgba(160,32,240,0.1); border-left: 3px solid #a020f0; border-radius: 4px; font-size: 11px; color: #ddd; }
+.achievement-item.unlocked { background: rgba(60,200,60,0.15); border-left-color: #3c8527; }
+#console { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); width: 640px; max-width: 90vw; background: rgba(10,10,15,0.95); border: 1px solid rgba(160,32,240,0.5); border-radius: 10px; padding: 10px; z-index: 40; display: none; }
+#console.active { display: block; }
+#console-log { height: 180px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #0f0; margin-bottom: 8px; padding: 5px; background: rgba(0,0,0,0.5); border-radius: 5px; }
+#console-log div { margin: 2px 0; }
+#console-input { width: 100%; background: rgba(30,30,30,0.9); border: 1px solid #555; border-radius: 5px; padding: 8px; color: #d4a0ff; font-family: monospace; font-size: 13px; outline: none; }
+#console-input:focus { border-color: #a020f0; }
+#command-hints { position: absolute; bottom: 44px; left: 10px; right: 10px; background: rgba(20,20,30,0.95); border: 1px solid rgba(160,32,240,0.3); border-radius: 5px; padding: 6px; font-size: 11px; color: #d4a0ff; display: none; max-height: 100px; overflow-y: auto; font-family: monospace; }
+#command-hints.show { display: block; }
+#start-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #0a0a1a 0%, #1a002a 50%, #0a1a0a 100%); display: flex; align-items: center; justify-content: center; z-index: 200; transition: opacity 0.5s; overflow-y: auto; padding: 20px; }
+#start-screen.hidden { opacity: 0; pointer-events: none; }
+.start-content { text-align: center; max-width: 820px; padding: 30px; }
+.start-title { font-size: 52px; font-weight: 900; letter-spacing: 4px; margin-bottom: 8px; background: linear-gradient(90deg, #e2231a 0%, #a020f0 50%, #3c8527 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-shadow: 0 0 40px rgba(160,32,240,0.3); animation: pulse-title 3s ease-in-out infinite; }
+@keyframes pulse-title { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
+.start-subtitle { font-size: 14px; color: #aaa; margin-bottom: 25px; letter-spacing: 2px; }
+.start-logos { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 25px; font-size: 16px; font-weight: bold; }
+.start-logo { padding: 10px 24px; border-radius: 12px; border: 2px solid white; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+.start-logo.roblox { background: linear-gradient(135deg, #e2231a, #ff4500); }
+.start-logo.minecraft { background: linear-gradient(135deg, #3c8527, #7cb342); }
+.start-logo.x { background: none; border: none; font-size: 32px; color: #a020f0; }
+.start-info { background: rgba(255,255,255,0.05); border-radius: 15px; padding: 20px 25px; margin-bottom: 25px; text-align: left; border: 1px solid rgba(255,255,255,0.1); line-height: 1.7; font-size: 13px; color: #ccc; }
+.start-info h3 { color: #d4a0ff; margin-bottom: 10px; font-size: 15px; }
+.start-info .key { display: inline-block; background: #333; border: 1px solid #666; border-radius: 4px; padding: 1px 8px; margin: 0 3px; font-weight: bold; color: #d4a0ff; font-family: monospace; font-size: 12px; }
+.start-info .columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+.start-btn { padding: 16px 55px; font-size: 18px; font-weight: bold; background: linear-gradient(135deg, #a020f0, #ff00ff); border: none; border-radius: 15px; color: white; cursor: pointer; letter-spacing: 2px; text-transform: uppercase; transition: all 0.3s; box-shadow: 0 10px 40px rgba(160,32,240,0.4); }
+.start-btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 15px 50px rgba(160,32,240,0.6); }
+#loading-screen { position: fixed; inset: 0; background: #0a0a0a; display: none; align-items: center; justify-content: center; z-index: 300; flex-direction: column; }
+#loading-screen.active { display: flex; }
+.loader { width: 220px; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin-top: 30px; }
+.loader-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #a020f0, #ff00ff); transition: width 0.3s; }
+.loader-text { font-size: 13px; color: #aaa; margin-top: 15px; letter-spacing: 2px; }
+#gamemode-indicator { position: absolute; top: 60px; left: 15px; background: rgba(20,20,20,0.8); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); }
+.mode-survival { color: #ff6666; border-color: #ff6666; }
+.mode-creative { color: #66ff66; border-color: #66ff66; }
+#craft-menu { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(10px); }
+#craft-menu.active { display: flex; }
+.craft-content { background: linear-gradient(135deg, rgba(40,40,50,0.98), rgba(20,20,30,0.98)); border-radius: 20px; padding: 30px; border: 2px solid rgba(160,32,240,0.5); max-width: 800px; max-height: 85vh; overflow-y: auto; }
+.craft-title { font-size: 26px; color: #d4a0ff; margin-bottom: 20px; text-align: center; }
+.craft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.craft-card { background: rgba(60,60,70,0.6); border-radius: 10px; padding: 12px; border: 1px solid rgba(255,255,255,0.15); transition: all 0.2s; cursor: pointer; }
+.craft-card:hover { border-color: #a020f0; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(160,32,240,0.3); }
+.craft-card.disabled { opacity: 0.4; cursor: not-allowed; }
+.craft-card h4 { color: #d4a0ff; font-size: 14px; margin-bottom: 6px; }
+.craft-card p { font-size: 11px; color: #aaa; margin: 3px 0; }
+.craft-card .cost { color: #ff6666; }
+#vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.4) 100%); z-index: 5; }
+#damage-overlay { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at center, transparent 30%, rgba(255,0,0,0.6) 100%); opacity: 0; transition: opacity 0.3s; z-index: 6; }
+#damage-overlay.show { opacity: 1; }
+#fall-indicator { position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%); background: rgba(200,0,0,0.85); color: white; padding: 8px 18px; border-radius: 8px; font-size: 14px; font-weight: bold; border: 2px solid white; display: none; z-index: 15; text-shadow: 1px 1px 2px black; }
+#fall-indicator.show { display: block; }
+#block-indicator { position: absolute; top: 55%; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.85); color: #d4a0ff; padding: 6px 14px; border-radius: 6px; font-size: 12px; border: 1px solid rgba(160,32,240,0.5); display: none; white-space: nowrap; z-index: 15; }
+#block-indicator.show { display: block; }
+#player-list { position: absolute; top: 130px; right: 15px; background: rgba(20,20,20,0.85); border-radius: 10px; padding: 10px; min-width: 180px; font-size: 12px; border: 1px solid rgba(160,32,240,0.4); display: none; z-index: 24; }
+#player-list.show { display: block; }
+#player-list h4 { color: #d4a0ff; margin-bottom: 6px; font-size: 12px; }
+.player-item { padding: 4px 6px; margin: 2px 0; border-radius: 4px; background: rgba(160,32,240,0.1); color: #ddd; font-size: 11px; }
+#eating-overlay { position: absolute; inset: 0; pointer-events: none; background: rgba(200,150,100,0.3); opacity: 0; transition: opacity 0.2s; z-index: 7; }
+#eating-overlay.show { opacity: 1; }
+#chat-container { position: absolute; bottom: 220px; left: 20px; width: 320px; max-height: 180px; overflow-y: auto; pointer-events: none; z-index: 22; }
+#chat-container .chat-msg { background: rgba(0,0,0,0.6); padding: 4px 10px; margin: 3px 0; border-radius: 5px; font-size: 12px; border-left: 3px solid #a020f0; }
+#chat-input { position: absolute; bottom: 190px; left: 20px; width: 320px; padding: 8px 12px; background: rgba(10,10,20,0.9); border: 2px solid rgba(160,32,240,0.6); border-radius: 8px; color: white; font-size: 13px; display: none; z-index: 23; outline: none; }
+#chat-input.active { display: block; }
+#server-config { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, rgba(40,40,50,0.98), rgba(20,20,30,0.98)); border-radius: 15px; padding: 25px 35px; border: 2px solid rgba(160,32,240,0.5); z-index: 150; display: none; max-width: 500px; }
+#server-config.active { display: block; }
+#server-config h3 { color: #d4a0ff; margin-bottom: 15px; font-size: 18px; text-align: center; }
+#server-config label { display: block; font-size: 12px; color: #aaa; margin: 10px 0 4px; }
+#server-config input[type=text] { width: 100%; padding: 8px 12px; background: #222; border: 1px solid #555; border-radius: 6px; color: #d4a0ff; font-size: 13px; font-family: monospace; }
+#server-config .btn-row { display: flex; gap: 8px; margin-top: 15px; }
+#server-config .btn-row button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; color: white; }
+@media (max-width: 768px) {
+    #controls-info { display: none; }
+    #hotbar { bottom: 100px; transform: translateX(-50%) scale(0.82); }
+    .slot { width: 46px; height: 46px; }
+    .slot-color { width: 26px; height: 26px; }
+    #minimap-container { width: 100px; height: 100px; bottom: 100px; }
+    #stats { font-size: 10px; padding: 6px 10px; min-width: 140px; }
+    .start-title { font-size: 30px; }
+    .start-info .columns { grid-template-columns: 1fr; }
+    #vitals { bottom: 82px; gap: 12px; }
+    .vital-track { width: 70px; }
+    #console { width: 95vw; }
+    #player-list { display: none !important; }
+    #chat-container { width: 200px; bottom: 180px; }
+    #chat-input { width: 200px; }
+}
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+    <div class="start-title" style="font-size: 32px;">Генерация мира...</div>
+    <div class="loader"><div class="loader-bar" id="loader-bar"></div></div>
+    <div class="loader-text" id="loader-text">Генерация блоков: 0%</div>
+</div>
+
+<div id="start-screen">
+    <div class="start-content">
+        <div class="start-title">BLOCKY WORLD 7.0</div>
+        <div class="start-subtitle">MULTIPLAYER FIXED · LIQUIDS · UNLIMITED FPS</div>
+        <div class="start-logos">
+            <div class="start-logo roblox">ROBLOX</div>
+            <div class="start-logo x">×</div>
+            <div class="start-logo minecraft">MINECRAFT</div>
+        </div>
+        <div class="start-info">
+            <div class="columns">
+                <div>
+                    <h3>🎮 Управление</h3>
+                    <p>
+                        <span class="key">WASD</span> Движение<br>
+                        <span class="key">Пробел</span> Прыжок<br>
+                        <span class="key">Shift</span> Бег<br>
+                        <span class="key">ЛКМ</span> Ударить/Удалить<br>
+                        <span class="key">ПКМ</span> Поставить<br>
+                        <span class="key">1-9</span> Выбор блока<br>
+                        <span class="key">Q</span> Есть<br>
+                        <span class="key">E</span> Крафт<br>
+                        <span class="key">F</span> Полёт<br>
+                        <span class="key">T</span> Консоль<br>
+                        <span class="key">Y</span> Чат<br>
+                        <span class="key">P</span> Сеть<br>
+                        <span class="key">ESC</span> Пауза
+                    </p>
+                </div>
+                <div>
+                    <h3>✨ Новое в 7.0</h3>
+                    <p>
+                        🌐 Рабочий мультиплеер<br>
+                        🔁 Повтор подключения<br>
+                        💧 Вода и лава<br>
+                        🪨 Булыжник при контакте<br>
+                        🚀 Неограниченный FPS<br>
+                        💬 Чат<br>
+                        🎨 18 блоков<br>
+                        🍖 Еда<br>
+                        🏆 18 достижений<br>
+                        💾 Сохранения
+                    </p>
+                </div>
+                <div>
+                    <h3>🌐 Сеть</h3>
+                    <p>
+                        <span class="key">Host</span> Создать комнату<br>
+                        <span class="key">Join</span> Подключиться<br>
+                        <br>
+                        PeerJS P2P.<br>
+                        Без сервера.<br>
+                        <br>
+                        <em style="color:#d4a0ff;">Синхр.:</em><br>
+                        • Блоки<br>
+                        • Игроки<br>
+                        • Враги<br>
+                        • Время<br>
+                        • Чат
+                    </p>
+                </div>
+            </div>
+        </div>
+        <button class="start-btn" id="start-btn">▶ НАЧАТЬ ИГРУ</button>
+    </div>
+</div>
+
+<div id="pause-menu">
+    <div class="pause-content">
+        <div class="pause-title">ПАУЗА</div>
+        <div class="pause-subtitle">Мир остановлен</div>
+        <button class="pause-btn" id="resume-btn">▶ Продолжить</button>
+        <button class="pause-btn secondary" id="save-btn">💾 Сохранить мир</button>
+        <button class="pause-btn secondary" id="load-btn">📂 Загрузить мир</button>
+        <button class="pause-btn secondary" id="craft-btn">🔨 Крафт</button>
+        <div class="settings-group">
+            <h4>⚙️ Настройки</h4>
+            <div class="settings-row"><span>Громкость</span><input type="range" id="volume-slider" min="0" max="100" value="50"></div>
+            <div class="settings-row"><span>Дальность прорисовки</span><input type="range" id="render-slider" min="40" max="200" value="120"></div>
+            <div class="settings-row"><span>Показывать FPS</span><input type="checkbox" id="fps-toggle" checked></div>
+            <div class="settings-row"><span>V-Sync</span><input type="checkbox" id="vsync-toggle"></div>
+            <div class="settings-row"><span>Режим игры</span><button class="pause-btn" style="width:auto;padding:6px 16px;margin:0;font-size:11px;" id="mode-toggle">Переключить</button></div>
+        </div>
+        <div class="settings-group">
+            <h4>🌐 Мультиплеер (PeerJS P2P)</h4>
+            <div class="settings-row"><span>ID комнаты</span><input type="text" id="room-id-input" placeholder="например: room123" maxlength="20"></div>
+            <button class="pause-btn secondary" id="host-btn" style="font-size:12px;padding:8px;">🎮 Создать комнату</button>
+            <button class="pause-btn secondary" id="join-btn" style="font-size:12px;padding:8px;">🔗 Присоединиться</button>
+            <button class="pause-btn tertiary" id="disconnect-btn" style="font-size:12px;padding:8px;">❌ Отключиться</button>
+            <div id="net-info" style="font-size:11px;color:#aaa;margin-top:8px;text-align:center;">Не подключено</div>
+            <div style="font-size:11px;color:#666;margin-top:6px;text-align:center;line-height:1.5;">Ошибка peer-unavailable:<br>хост ещё не создал комнату или ID неверный.<br>Попробуйте снова через 2-3 секунды.</div>
+        </div>
+        <button class="pause-btn tertiary" id="new-world-btn">🌍 Новый мир</button>
+        <button class="pause-btn tertiary" id="reset-btn">🗑️ Сбросить всё</button>
+    </div>
+</div>
+
+<div id="craft-menu">
+    <div class="craft-content">
+        <div class="craft-title">🔨 КРАФТ</div>
+        <div class="craft-grid" id="craft-grid"></div>
+        <button class="pause-btn tertiary" style="margin-top:20px;" id="close-craft">Закрыть</button>
+    </div>
+</div>
+
+<div id="server-config">
+    <h3>🌐 Мультиплеер</h3>
+    <label>ID комнаты</label>
+    <input type="text" id="server-room-input" placeholder="например: room123">
+    <div class="btn-row">
+        <button style="background:#3c8527;" id="server-host">Создать</button>
+        <button style="background:#a020f0;" id="server-join">Войти</button>
+        <button style="background:#555;" id="server-close">Закрыть</button>
+    </div>
+</div>
+
+<div id="hud">
+    <div id="vignette"></div>
+    <div id="damage-overlay"></div>
+    <div id="eating-overlay"></div>
+    <div id="top-bar">
+        <div class="badge badge-roblox">ROBLOX</div>
+        <div class="badge badge-minecraft">MINECRAFT</div>
+        <div class="badge badge-v7">V7.0 FIXED</div>
+    </div>
+    <div id="gamemode-indicator" class="mode-survival">⚔️ ВЫЖИВАНИЕ</div>
+    <div id="crosshair"><div id="crosshair-dot"></div></div>
+    <div id="block-indicator"></div>
+    <div id="fall-indicator">⚠️ ПАДЕНИЕ! ОПАСНО!</div>
+    <div id="stats">
+        <div class="stat-row"><span class="stat-label">Блоков:</span><span class="stat-value" id="stat-blocks">0</span></div>
+        <div class="stat-row"><span class="stat-label">Позиция:</span><span class="stat-value" id="stat-pos">0, 0, 0</span></div>
+        <div class="stat-row"><span class="stat-label">FPS:</span><span class="stat-value" id="stat-fps">60</span></div>
+        <div class="stat-row"><span class="stat-label">Врагов:</span><span class="stat-value" id="stat-enemies">0</span></div>
+        <div class="stat-row"><span class="stat-label">Скорость Y:</span><span class="stat-value" id="stat-vy">0.0</span></div>
+        <div class="stat-row"><span class="stat-label">Опора:</span><span class="stat-value" id="stat-ground">✓</span></div>
+        <div class="stat-row"><span class="stat-label">Игроков:</span><span class="stat-value" id="stat-players">1</span></div>
+    </div>
+    <div id="time-panel">
+        <div id="time-icon">☀️</div>
+        <div id="time-text">12:00</div>
+        <div id="time-phase">День</div>
+        <div id="weather-icon">☀️ Ясно</div>
+        <div id="net-status" class="net-offline">🌐 Оффлайн</div>
+    </div>
+    <div id="vitals">
+        <div class="vital-bar"><div class="vital-icon">❤️</div><div class="vital-track"><div class="vital-fill health-fill" id="health-fill" style="width:100%"></div></div><div class="vital-value" id="health-value">20/20</div></div>
+        <div class="vital-bar"><div class="vital-icon">🍖</div><div class="vital-track"><div class="vital-fill hunger-fill" id="hunger-fill" style="width:100%"></div></div><div class="vital-value" id="hunger-value">20/20</div></div>
+    </div>
+    <div id="hotbar"></div>
+    <div id="controls-info">
+        <div><span class="key">WASD</span> Движение · <span class="key">Пробел</span> Прыжок</div>
+        <div><span class="key">ЛКМ</span> Ударить · <span class="key">ПКМ</span> Блок</div>
+        <div><span class="key">Q</span> Есть · <span class="key">E</span> Крафт · <span class="key">T</span> Консоль</div>
+        <div><span class="key">F</span> Полёт · <span class="key">Y</span> Чат · <span class="key">P</span> Сеть</div>
+    </div>
+    <div id="minimap-container">
+        <canvas id="minimap" width="170" height="170"></canvas>
+        <div id="minimap-label">КАРТА</div>
+    </div>
+    <div id="achievements">
+        <h4>🏆 Достижения</h4>
+        <div id="achievement-list"></div>
+    </div>
+    <div id="player-list">
+        <h4>🌐 Игроки онлайн</h4>
+        <div id="player-items"></div>
+    </div>
+    <div id="chat-container"></div>
+    <input type="text" id="chat-input" placeholder="Введите сообщение..." maxlength="100">
+    <div id="notification"></div>
+</div>
+
+<div id="console">
+    <div id="console-log"></div>
+    <div id="command-hints"></div>
+    <input type="text" id="console-input" placeholder="Введите команду... (help для списка)" autocomplete="off">
+</div>
+
+<div id="mobile-controls">
+    <div class="joystick-base" id="joystick"><div class="joystick-knob" id="joystick-knob"></div></div>
+    <div class="mobile-btn" id="btn-jump">↑</div>
+    <div class="mobile-btn" id="btn-place">+</div>
+    <div class="mobile-btn" id="btn-break">−</div>
+    <div class="mobile-btn" id="btn-fly">✈</div>
+    <div class="mobile-btn" id="btn-eat">🍖</div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.0/dist/peerjs.min.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+// ============================================================
+// КОНФИГУРАЦИЯ
+// ============================================================
+const CONFIG = {
+    worldSize: 40, blockSize: 1, gravity: 28, walkSpeed: 6, runSpeed: 10,
+    jumpSpeed: 9, flySpeed: 20, eyeHeight: 1.6, playerHeight: 1.8,
+    playerWidth: 0.6, maxBlocks: 15000, saveKey: 'blockyWorld7_save_v1',
+    settingsKey: 'blockyWorld7_settings', fogNear: 40, fogFar: 120,
+    dayLength: 180, maxEnemies: 10, maxNPCs: 4, attackCooldown: 0.5,
+    regenInterval: 5, fallDamageThreshold: 3, fallDamagePerBlock: 1,
+    playerStep: 0.1, maxFallSpeed: 50, fluidTickInterval: 0.4,
+    fluidSpreadRange: 4, eatingTime: 1.5, mobFallDamageThreshold: 3,
+    netTickRate: 20, enemySyncInterval: 0.1, maxReconnectAttempts: 5,
+};
+
+// ============================================================
+// ТИПЫ БЛОКОВ
+// ============================================================
+const BLOCK_TYPES = [
+    { id: 'grass', name: 'Трава', color: 0x7CB342, emissive: 0x1a2a10, roughness: 0.8, icon: '#7CB342', solid: true },
+    { id: 'dirt', name: 'Земля', color: 0x8B5A2B, emissive: 0x1a0d05, roughness: 0.95, icon: '#8B5A2B', solid: true },
+    { id: 'stone', name: 'Камень', color: 0x808080, emissive: 0x101010, roughness: 0.6, icon: '#808080', solid: true },
+    { id: 'wood', name: 'Дерево', color: 0x8B4513, emissive: 0x150a02, roughness: 0.85, icon: '#8B4513', solid: true },
+    { id: 'leaf', name: 'Листва', color: 0x2E7D32, emissive: 0x0a1a0a, roughness: 0.7, icon: '#2E7D32', solid: true },
+    { id: 'brick', name: 'Кирпич', color: 0xB22222, emissive: 0x2a0505, roughness: 0.5, icon: '#B22222', solid: true },
+    { id: 'neon', name: 'Неон', color: 0xFFAA00, emissive: 0xFF5500, roughness: 0.3, icon: '#FFAA00', solid: true },
+    { id: 'glass', name: 'Стекло', color: 0x88CCFF, emissive: 0x001122, roughness: 0.1, icon: '#88CCFF', solid: true, transparent: true, opacity: 0.4 },
+    { id: 'gold', name: 'Золото', color: 0xFFD700, emissive: 0x443300, roughness: 0.2, icon: '#FFD700', solid: true, metalness: 0.8 },
+    { id: 'water', name: 'Вода', color: 0x3399FF, emissive: 0x001133, roughness: 0.1, icon: '#3399FF', solid: false, fluid: true, transparent: true, opacity: 0.55 },
+    { id: 'lava', name: 'Лава', color: 0xFF4400, emissive: 0xFF2200, roughness: 0.5, icon: '#FF4400', solid: false, fluid: true, damage: 3 },
+    { id: 'sand', name: 'Песок', color: 0xEEDD82, emissive: 0x222200, roughness: 0.9, icon: '#EEDD82', solid: true },
+    { id: 'obsidian', name: 'Обсидиан', color: 0x220033, emissive: 0x110022, roughness: 0.3, icon: '#220033', solid: true },
+    { id: 'diamond', name: 'Алмаз', color: 0x00FFFF, emissive: 0x004444, roughness: 0.1, icon: '#00FFFF', solid: true, metalness: 0.9 },
+    { id: 'emerald', name: 'Изумруд', color: 0x00FF66, emissive: 0x003311, roughness: 0.15, icon: '#00FF66', solid: true, metalness: 0.8 },
+    { id: 'cobble', name: 'Булыжник', color: 0x555555, emissive: 0x0a0a0a, roughness: 0.9, icon: '#555555', solid: true },
+    { id: 'snow', name: 'Снег', color: 0xFFFFFF, emissive: 0x444444, roughness: 0.9, icon: '#FFFFFF', solid: true },
+    { id: 'ice', name: 'Лёд', color: 0xAADDFF, emissive: 0x112233, roughness: 0.05, icon: '#AADDFF', solid: true, transparent: true, opacity: 0.7 },
+];
+
+const FOOD_TYPES = [
+    { id: 'apple', name: 'Яблоко', icon: '#ff3333', heal: 3, hunger: 4, color: 0xff3333 },
+    { id: 'bread', name: 'Хлеб', icon: '#d4a373', heal: 2, hunger: 6, color: 0xd4a373 },
+    { id: 'meat', name: 'Мясо', icon: '#aa3344', heal: 5, hunger: 8, color: 0xaa3344 },
+    { id: 'golden_apple', name: 'Золотое яблоко', icon: '#ffd700', heal: 10, hunger: 10, color: 0xffd700 },
+];
+
+const CRAFT_RECIPES = [
+    { result: 'wood', name: 'Дерево', cost: { dirt: 2 }, amount: 2, desc: 'Из земли' },
+    { result: 'brick', name: 'Кирпич', cost: { stone: 2 }, amount: 2, desc: 'Из камня' },
+    { result: 'glass', name: 'Стекло', cost: { sand: 3 }, amount: 2, desc: 'Песок → стекло' },
+    { result: 'gold', name: 'Золото', cost: { stone: 3, brick: 1 }, amount: 1, desc: 'Ценный металл' },
+    { result: 'diamond', name: 'Алмаз', cost: { gold: 2, stone: 5 }, amount: 1, desc: 'Драгоценный' },
+    { result: 'emerald', name: 'Изумруд', cost: { diamond: 1, gold: 1 }, amount: 1, desc: 'Легендарный' },
+    { result: 'obsidian', name: 'Обсидиан', cost: { lava: 2, water: 2 }, amount: 2, desc: 'Лава + вода' },
+    { result: 'neon', name: 'Неон', cost: { gold: 1, glass: 2 }, amount: 3, desc: 'Светящийся' },
+    { result: 'cobble', name: 'Булыжник', cost: { stone: 1 }, amount: 1, desc: 'Из камня' },
+    { result: 'apple', name: 'Яблоко', cost: { leaf: 3 }, amount: 1, desc: 'Из листвы' },
+    { result: 'bread', name: 'Хлеб', cost: { grass: 5 }, amount: 1, desc: 'Из травы' },
+    { result: 'meat', name: 'Мясо', cost: { brick: 1, gold: 1 }, amount: 1, desc: 'Сытое блюдо' },
+    { result: 'golden_apple', name: 'Золотое яблоко', cost: { apple: 1, gold: 2 }, amount: 1, desc: 'Супер-еда' },
+    { result: 'snow', name: 'Снег', cost: { water: 2, ice: 1 }, amount: 3, desc: 'Из воды и льда' },
+    { result: 'ice', name: 'Лёд', cost: { water: 3 }, amount: 1, desc: 'Замороженная вода' },
+];
+
+const ACHIEVEMENTS = [
+    { id: 'first_block', name: 'Первый блок', desc: 'Поставьте блок', icon: '🧱' },
+    { id: 'breaker', name: 'Разрушитель', desc: '50 блоков', icon: '⛏️' },
+    { id: 'builder', name: 'Строитель', desc: '100 блоков', icon: '🏗️' },
+    { id: 'killer', name: 'Охотник', desc: 'Убейте врага', icon: '⚔️' },
+    { id: 'survivor', name: 'Выживший', desc: '5 минут', icon: '🛡️' },
+    { id: 'crafter', name: 'Мастер крафта', desc: '10 крафтов', icon: '🔨' },
+    { id: 'explorer', name: 'Исследователь', desc: '1000 метров', icon: '🧭' },
+    { id: 'rich', name: 'Богач', desc: '50 алмазов', icon: '💎' },
+    { id: 'night_owl', name: 'Полуночник', desc: 'Дожить до ночи', icon: '🦉' },
+    { id: 'flyer', name: 'Летун', desc: '30 сек полёта', icon: '✈️' },
+    { id: 'fall_damage', name: 'Это было больно', desc: 'Урон от падения', icon: '💥' },
+    { id: 'climber', name: 'Скалолаз', desc: '100 прыжков', icon: '🧗' },
+    { id: 'chef', name: 'Повар', desc: 'Съешьте еду', icon: '🍖' },
+    { id: 'engineer', name: 'Инженер', desc: 'Создайте булыжник', icon: '🪨' },
+    { id: 'multiplayer', name: 'Не один', desc: 'Подключитесь к сети', icon: '🌐' },
+    { id: 'killer5', name: 'Гроза мобов', desc: 'Убейте 5 врагов', icon: '💀' },
+    { id: 'killer20', name: 'Легенда', desc: 'Убейте 20 врагов', icon: '👑' },
+    { id: 'chatter', name: 'Общительный', desc: 'Отправьте сообщение в чат', icon: '💬' },
+];
+
+// ============================================================
+// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+// ============================================================
+let scene, camera, renderer, controls;
+let sunLight, ambientLight, hemiLight, moonLight;
+let blocks = [], enemies = [], npcs = [], particles = [];
+let blockGeometry, raycaster, mouseVec;
+let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+let isPaused = false, isFlyMode = false, currentBlockIndex = 0;
+let velocityY = 0, gameStarted = false, timeOfDay = 0.25;
+let lastTime = 0, fpsCounter = 0, fpsTimer = 0, currentFPS = 60;
+let worldSeed = Date.now();
+let keys = {}, touchMove = { x: 0, y: 0 };
+let lastAttackTime = 0, gameStartTime = 0, flyTime = 0, distanceTraveled = 0;
+let playerOnGround = false, playerFalling = false, fallStartY = 0;
+let playerAABB = { halfW: CONFIG.playerWidth / 2, halfH: CONFIG.playerHeight / 2 };
+let settings = { volume: 0.5, renderDistance: 120, showFPS: true, vsync: false, gameMode: 'survival' };
+let inventory = {}, foodInventory = {};
+let playerStats = { health: 20, maxHealth: 20, hunger: 20, maxHunger: 20, lastRegen: 0, lastHungerDrain: 0 };
+let isEating = false, eatingProgress = 0, eatingFoodIndex = -1;
+let unlockedAchievements = new Set();
+let achievementCounts = { blocksPlaced: 0, blocksBroken: 0, enemiesKilled: 0, crafted: 0, diamondsCollected: 0, fallDamageTaken: 0, jumps: 0, foodsEaten: 0, cobbleMade: 0, messagesSent: 0 };
+let weather = { type: 'clear', intensity: 0, timer: 30, rainParticles: [] };
+let audioContext = null;
+const materialCache = {};
+let elapsedTime = 0;
+let buckets = { water: 0, lava: 0 };
+let fluidQueue = [], fluidTimer = 0;
+
+// Мультиплеер
+let peer = null;
+let connections = [];
+let isHost = false;
+let roomId = null;
+let remotePlayers = {};
+let lastNetSend = 0;
+let lastEnemySync = 0;
+let netTickTimer = 0;
+let playerId = 'p_' + Math.random().toString(36).substr(2, 9);
+let playerName = 'Игрок';
+let reconnectAttempts = 0;
+let reconnectTimer = null;
+
+// ============================================================
+// УТИЛИТЫ
+// ============================================================
+function getMaterial(typeId) {
+    if (materialCache[typeId]) return materialCache[typeId];
+    const type = BLOCK_TYPES.find(t => t.id === typeId) || BLOCK_TYPES[0];
+    const mat = new THREE.MeshStandardMaterial({
+        color: type.color, emissive: type.emissive || 0x000000,
+        roughness: type.roughness || 0.8, metalness: type.metalness || 0.0,
+        transparent: type.transparent || false, opacity: type.opacity || 1.0,
+    });
+    materialCache[typeId] = mat;
+    return mat;
+}
+function showNotification(text, duration = 2500) {
+    const el = document.getElementById('notification');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(el._timeout);
+    el._timeout = setTimeout(() => el.classList.remove('show'), duration);
+}
+function seededRandom(seed) {
+    let s = seed;
+    return function() { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+}
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function playSound(freq, duration = 0.1, type = 'sine', volume = 0.1) {
+    if (!audioContext) { try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return; } }
+    try {
+        const osc = audioContext.createOscillator(), gain = audioContext.createGain();
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.value = volume * settings.volume;
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+        osc.connect(gain); gain.connect(audioContext.destination);
+        osc.start(); osc.stop(audioContext.currentTime + duration);
+    } catch(e) {}
+}
+
+// ============================================================
+// КОЛЛИЗИИ
+// ============================================================
+function aabbIntersectsBlock(cx, cy, cz, block) {
+    const dx = Math.abs(cx - block.position.x) - (playerAABB.halfW + 0.5);
+    const dy = Math.abs(cy - block.position.y) - (playerAABB.halfH + 0.5);
+    const dz = Math.abs(cz - block.position.z) - (playerAABB.halfW + 0.5);
+    return dx < 0 && dy < 0 && dz < 0;
+}
+function collidesWithWorld(cx, cy, cz) {
+    for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (!b.parent) continue;
+        const type = BLOCK_TYPES.find(t => t.id === b.userData.type);
+        if (!type || !type.solid) continue;
+        if (aabbIntersectsBlock(cx, cy, cz, b)) return b;
+    }
+    return null;
+}
+function hasGroundBelow(cx, cy, cz) {
+    const checkY = cy - playerAABB.halfH - 0.25 - 0.05;
+    for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        if (!b.parent) continue;
+        const type = BLOCK_TYPES.find(t => t.id === b.userData.type);
+        if (!type || !type.solid) continue;
+        if (Math.abs(b.position.x - cx) < (playerAABB.halfW + 0.5) &&
+            Math.abs(b.position.z - cz) < (playerAABB.halfW + 0.5)) {
+            const top = b.position.y + 0.5;
+            if (top >= checkY - 0.2 && top <= checkY + 0.35) return b;
+        }
+    }
+    return null;
+}
+function getBlockAt(x, y, z) {
+    for (const b of blocks) {
+        if (!b.parent) continue;
+        if (Math.abs(b.position.x - x) < 0.5 && Math.abs(b.position.y - y) < 0.5 && Math.abs(b.position.z - z) < 0.5) return b;
+    }
+    return null;
+}
+
+// ============================================================
+// ЖИДКОСТИ (РАСТЕКАНИЕ)
+// ============================================================
+function scheduleFluidUpdate(block) {
+    if (block && fluidQueue.indexOf(block) === -1) fluidQueue.push(block);
+}
+function updateFluids(delta) {
+    fluidTimer += delta;
+    if (fluidTimer < CONFIG.fluidTickInterval) return;
+    fluidTimer = 0;
+    const queue = fluidQueue.slice();
+    fluidQueue = [];
+    for (const fluid of queue) {
+        if (!fluid.parent) continue;
+        const type = fluid.userData.type;
+        if (type !== 'water' && type !== 'lava') continue;
+        const x = fluid.position.x, y = fluid.position.y, z = fluid.position.z;
+        // Контакт вода+лава → булыжник
+        const neighbors = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+        let converted = false;
+        for (const [dx, dy, dz] of neighbors) {
+            const nb = getBlockAt(x+dx, y+dy, z+dz);
+            if (!nb) continue;
+            if ((type === 'lava' && nb.userData.type === 'water') || (type === 'water' && nb.userData.type === 'lava')) {
+                createCobblestone(x, y, z);
+                createCobblestone(nb.position.x, nb.position.y, nb.position.z);
+                achievementCounts.cobbleMade++;
+                checkAchievements();
+                playSound(120, 0.3, 'sawtooth', 0.2);
+                converted = true;
+                break;
+            }
+        }
+        if (converted || !fluid.parent) continue;
+        // Вниз
+        const below = getBlockAt(x, y-1, z);
+        if (!below) {
+            fluid.position.y = y - 1;
+            scheduleFluidUpdate(fluid);
+            if (isHost) broadcastBlockUpdate(x, y-1, z, type);
+            continue;
+        }
+        // Горизонтально
+        const spreadLevel = fluid.userData.spreadLevel || 0;
+        if (spreadLevel < CONFIG.fluidSpreadRange) {
+            for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                const nb = getBlockAt(x+dx, y, z+dz);
+                if (nb) continue;
+                const belowNb = getBlockAt(x+dx, y-1, z+dz);
+                if (belowNb) {
+                    const nbType = belowNb.userData.type;
+                    if (nbType === 'water' || nbType === 'lava') continue;
+                    if ((type === 'water' && nbType === 'lava') || (type === 'lava' && nbType === 'water')) {
+                        createCobblestone(x+dx, y, z+dz);
+                        continue;
+                    }
+                }
+                const newFluid = createBlock(x+dx, y, z+dz, type);
+                newFluid.userData.spreadLevel = spreadLevel + 1;
+                scene.add(newFluid);
+                blocks.push(newFluid);
+                scheduleFluidUpdate(newFluid);
+                if (isHost) broadcastBlockUpdate(x+dx, y, z+dz, type);
+            }
+        }
+    }
+}
+function createCobblestone(x, y, z) {
+    const old = getBlockAt(x, y, z);
+    if (old) {
+        const idx = blocks.indexOf(old);
+        if (idx !== -1) blocks.splice(idx, 1);
+        scene.remove(old);
+    }
+    const cobble = createBlock(x, y, z, 'cobble');
+    scene.add(cobble);
+    blocks.push(cobble);
+    spawnParticles(cobble.position, 'cobble', 6);
+    showNotification('🪨 Булыжник!', 1200);
+    updateStats(); updateMinimap();
+    if (isHost) broadcastBlockUpdate(x, y, z, 'cobble');
+}
+
+// ============================================================
+// ИНИЦИАЛИЗАЦИЯ СЦЕНЫ
+// ============================================================
+function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.Fog(0x87CEEB, CONFIG.fogNear, CONFIG.fogFar);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 8, 15);
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+    controls = new PointerLockControls(camera, renderer.domElement);
+    controls.getObject().position.y = CONFIG.eyeHeight + 1;
+    initLights();
+    blockGeometry = new THREE.BoxGeometry(CONFIG.blockSize, CONFIG.blockSize, CONFIG.blockSize);
+    raycaster = new THREE.Raycaster();
+    mouseVec = new THREE.Vector2(0, 0);
+    setupEvents();
+    loadSettings();
+    initAchievementUI();
+    initInventory();
+}
+function initLights() {
+    sunLight = new THREE.DirectionalLight(0xfff5e6, 1.3);
+    sunLight.position.set(50, 100, 50);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    const d = 60;
+    sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.camera.near = 1; sunLight.shadow.camera.far = 200;
+    sunLight.shadow.bias = -0.001;
+    scene.add(sunLight); scene.add(sunLight.target);
+    moonLight = new THREE.DirectionalLight(0x8899ff, 0);
+    moonLight.position.set(-50, 100, -50);
+    scene.add(moonLight);
+    ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+    scene.add(ambientLight);
+    hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3a5f0b, 0.5);
+    scene.add(hemiLight);
+    const fill = new THREE.PointLight(0xffffaa, 0.3);
+    fill.position.set(-20, 30, 20);
+    scene.add(fill);
+}
+
+// ============================================================
+// ГЕНЕРАЦИЯ МИРА
+// ============================================================
+function generateWorld() {
+    blocks.forEach(b => scene.remove(b));
+    blocks = [];
+    enemies.forEach(e => scene.remove(e.mesh));
+    enemies = [];
+    npcs.forEach(n => scene.remove(n.mesh));
+    npcs = [];
+    particles.forEach(p => scene.remove(p));
+    particles = [];
+    Object.keys(materialCache).forEach(k => delete materialCache[k]);
+    fluidQueue = [];
+    const rand = seededRandom(worldSeed);
+    const size = CONFIG.worldSize, half = size / 2;
+    const genTotal = size * size;
+    let genCount = 0;
+    const loadingBar = document.getElementById('loader-bar');
+    const loadingText = document.getElementById('loader-text');
+    const loadingScreen = document.getElementById('loading-screen');
+    loadingScreen.classList.add('active');
+    loadingBar.style.width = '0%';
+    function genBatch() {
+        const batchSize = 80;
+        const end = Math.min(genCount + batchSize, genTotal);
+        for (let i = genCount; i < end; i++) {
+            const x = (i % size) - half, z = Math.floor(i / size) - half;
+            const block = createBlock(x, 0.5, z, 'grass');
+            scene.add(block); blocks.push(block);
+            if (rand() > 0.6) { const d = createBlock(x, -0.5, z, 'dirt'); scene.add(d); blocks.push(d); }
+            if (rand() > 0.85) { const s = createBlock(x, -1.5, z, 'stone'); scene.add(s); blocks.push(s); }
+            if (rand() > 0.96) {
+                const w = createBlock(x, 0.5, z, 'water');
+                w.userData.spreadLevel = 0; scene.add(w); blocks.push(w);
+                scheduleFluidUpdate(w);
+            }
+            if (rand() > 0.99) {
+                const l = createBlock(x, 0.5, z, 'lava');
+                l.userData.spreadLevel = 0; scene.add(l); blocks.push(l);
+                scheduleFluidUpdate(l);
+            }
+            if (rand() > 0.92 && rand() < 0.95) {
+                const sand = createBlock(x, 0.5, z, 'sand');
+                const idx = blocks.findIndex(b => b.position.x === x && b.position.z === z && b.userData.type === 'grass');
+                if (idx !== -1) { scene.remove(blocks[idx]); blocks.splice(idx, 1); scene.add(sand); blocks.push(sand); }
+            }
+        }
+        genCount = end;
+        const pct = Math.floor((genCount / genTotal) * 100);
+        loadingBar.style.width = pct + '%';
+        loadingText.textContent = `Генерация блоков: ${pct}%`;
+        if (genCount < genTotal) requestAnimationFrame(genBatch);
+        else {
+            generateTrees(rand);
+            generateDecorations(rand);
+            spawnNPCs();
+            spawnEnemies();
+            loadingBar.style.width = '100%';
+            loadingText.textContent = 'Готово!';
+            setTimeout(() => loadingScreen.classList.remove('active'), 300);
+            updateStats(); updateMinimap(); updateInventoryUI();
+        }
+    }
+    genBatch();
+}
+function createBlock(x, y, z, typeId) {
+    const mat = getMaterial(typeId);
+    const block = new THREE.Mesh(blockGeometry, mat);
+    block.position.set(x, y, z);
+    block.castShadow = true; block.receiveShadow = true;
+    block.userData.type = typeId;
+    block.userData.health = 3;
+    return block;
+}
+function generateTrees(rand) {
+    const count = 10 + Math.floor(rand() * 8);
+    const pos = [];
+    for (let i = 0; i < count; i++) {
+        const x = Math.floor((rand() - 0.5) * (CONFIG.worldSize - 6));
+        const z = Math.floor((rand() - 0.5) * (CONFIG.worldSize - 6));
+        let close = false;
+        for (const p of pos) if (Math.hypot(p.x - x, p.z - z) < 4) { close = true; break; }
+        if (close) continue;
+        pos.push({ x, z });
+        createTree(x, z);
+    }
+}
+function createTree(bx, bz) {
+    const th = 3 + Math.floor(Math.random() * 2);
+    for (let y = 1; y <= th; y++) {
+        const t = createBlock(bx, y + 0.5, bz, 'wood');
+        scene.add(t); blocks.push(t);
+    }
+    const topY = th + 0.5;
+    const leafPos = [[0,0,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[1,1,0],[-1,1,0],[0,1,1],[0,1,-1],[0,2,0]];
+    leafPos.forEach(([dx, dy, dz]) => {
+        const l = createBlock(bx+dx, topY+dy, bz+dz, 'leaf');
+        scene.add(l); blocks.push(l);
+    });
+}
+function generateDecorations(rand) {
+    const types = ['neon', 'gold', 'glass', 'brick', 'diamond', 'emerald', 'snow', 'ice'];
+    for (let i = 0; i < 25; i++) {
+        const type = types[Math.floor(rand() * types.length)];
+        const x = Math.floor((rand() - 0.5) * (CONFIG.worldSize - 4));
+        const z = Math.floor((rand() - 0.5) * (CONFIG.worldSize - 4));
+        const y = 0.5 + Math.floor(rand() * 3);
+        let occupied = false;
+        for (const b of blocks) if (Math.abs(b.position.x - x) < 0.5 && Math.abs(b.position.z - z) < 0.5) { occupied = true; break; }
+        if (occupied) continue;
+        const block = createBlock(x, y, z, type);
+        scene.add(block); blocks.push(block);
+    }
+    for (let i = 0; i < 15; i++) {
+        const cm = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x333333, transparent: true, opacity: 0.65, roughness: 1.0 });
+        const cloud = new THREE.Mesh(new THREE.SphereGeometry(2 + rand() * 3, 5, 5), cm);
+        cloud.position.set((rand() - 0.5) * 120, 18 + rand() * 12, (rand() - 0.5) * 120);
+        cloud.scale.set(1, 0.3, 1);
+        scene.add(cloud);
+    }
+}
+function spawnNPCs() {
+    const rand = seededRandom(worldSeed + 1);
+    const types = ['villager', 'trader', 'guard'];
+    const colors = { villager: 0x8B4513, trader: 0xFFD700, guard: 0x4169E1 };
+    for (let i = 0; i < CONFIG.maxNPCs; i++) {
+        const type = types[Math.floor(rand() * types.length)];
+        const x = (rand() - 0.5) * (CONFIG.worldSize - 10);
+        const z = (rand() - 0.5) * (CONFIG.worldSize - 10);
+        const geo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+        const mat = new THREE.MeshStandardMaterial({ color: colors[type] });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, 1.3, z);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        scene.add(mesh);
+        const headGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xFFDBAC });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(0, 1.1, 0); head.castShadow = true;
+        mesh.add(head);
+        npcs.push({ mesh, type, homePos: new THREE.Vector3(x, 1.3, z), targetPos: new THREE.Vector3(x, 1.3, z), wanderTimer: Math.random() * 3, speed: 1.5 });
+    }
+}
+function spawnEnemies() {
+    const rand = seededRandom(worldSeed + 2);
+    const types = ['zombie', 'skeleton', 'creeper'];
+    const colors = { zombie: 0x3a5f0b, skeleton: 0xDDDDDD, creeper: 0x00AA00 };
+    for (let i = 0; i < CONFIG.maxEnemies; i++) {
+        const type = types[Math.floor(rand() * types.length)];
+        const angle = rand() * Math.PI * 2;
+        const dist = 10 + rand() * 15;
+        const x = Math.cos(angle) * dist, z = Math.sin(angle) * dist;
+        const geo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+        const mat = new THREE.MeshStandardMaterial({ color: colors[type], emissive: 0x220000 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, 1.3, z);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        scene.add(mesh);
+        const headGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+        const headMat = new THREE.MeshStandardMaterial({ color: type === 'skeleton' ? 0xEEEEEE : type === 'creeper' ? 0x00DD00 : 0x6a8f3a, emissive: 0x330000 });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(0, 1.1, 0); head.castShadow = true;
+        mesh.add(head);
+        enemies.push({
+            id: 'e_' + Math.random().toString(36).substr(2, 9),
+            mesh, type,
+            health: type === 'zombie' ? 5 : type === 'skeleton' ? 4 : 3,
+            maxHealth: type === 'zombie' ? 5 : type === 'skeleton' ? 4 : 3,
+            speed: type === 'zombie' ? 1.8 : type === 'skeleton' ? 2.2 : 1.5,
+            damage: type === 'zombie' ? 2 : type === 'skeleton' ? 1 : 4,
+            attackTimer: 0, wanderAngle: rand() * Math.PI * 2, wanderTimer: 2 + rand() * 3,
+            velocityY: 0, onGround: false, fallStartY: 0, falling: false,
+        });
+    }
+    updateStats();
+}
+
+// ============================================================
+// СОБЫТИЯ
+// ============================================================
+function setupEvents() {
+    window.addEventListener('resize', onResize);
+    renderer.domElement.addEventListener('click', () => {
+        if (gameStarted && !isPaused) controls.lock();
+    });
+    controls.addEventListener('lock', () => {
+        isPaused = false;
+        document.getElementById('pause-menu').classList.remove('active');
+    });
+    controls.addEventListener('unlock', () => {
+        if (gameStarted && !document.getElementById('craft-menu').classList.contains('active')) {
+            isPaused = true;
+            document.getElementById('pause-menu').classList.add('active');
+        }
+    });
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    document.addEventListener('wheel', onWheel, { passive: false });
+    document.getElementById('resume-btn').addEventListener('click', () => {
+        document.getElementById('pause-menu').classList.remove('active');
+        isPaused = false; controls.lock();
+    });
+    document.getElementById('save-btn').addEventListener('click', saveWorld);
+    document.getElementById('load-btn').addEventListener('click', loadWorld);
+    document.getElementById('new-world-btn').addEventListener('click', newWorld);
+    document.getElementById('reset-btn').addEventListener('click', resetAll);
+    document.getElementById('craft-btn').addEventListener('click', openCraftMenu);
+    document.getElementById('close-craft').addEventListener('click', closeCraftMenu);
+    document.getElementById('mode-toggle').addEventListener('click', toggleGameMode);
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('volume-slider').addEventListener('input', (e) => { settings.volume = e.target.value / 100; saveSettings(); });
+    document.getElementById('render-slider').addEventListener('input', (e) => { settings.renderDistance = parseInt(e.target.value); scene.fog.far = settings.renderDistance; saveSettings(); });
+    document.getElementById('fps-toggle').addEventListener('change', (e) => { settings.showFPS = e.target.checked; document.getElementById('stat-fps').parentElement.style.display = settings.showFPS ? 'flex' : 'none'; saveSettings(); });
+    document.getElementById('vsync-toggle').addEventListener('change', (e) => { settings.vsync = e.target.checked; saveSettings(); });
+    document.getElementById('host-btn').addEventListener('click', hostRoom);
+    document.getElementById('join-btn').addEventListener('click', joinRoom);
+    document.getElementById('disconnect-btn').addEventListener('click', disconnectNet);
+    document.getElementById('server-host').addEventListener('click', () => {
+        document.getElementById('room-id-input').value = document.getElementById('server-room-input').value;
+        hostRoom();
+        document.getElementById('server-config').classList.remove('active');
+    });
+    document.getElementById('server-join').addEventListener('click', () => {
+        document.getElementById('room-id-input').value = document.getElementById('server-room-input').value;
+        joinRoom();
+        document.getElementById('server-config').classList.remove('active');
+    });
+    document.getElementById('server-close').addEventListener('click', () => { document.getElementById('server-config').classList.remove('active'); });
+    const consoleInput = document.getElementById('console-input');
+    consoleInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        const hints = document.getElementById('command-hints');
+        if (val.length > 0) {
+            const matches = COMMANDS_LIST.filter(c => c.startsWith(val.split(' ')[0]));
+            if (matches.length > 0) {
+                hints.innerHTML = matches.map(m => `<span style="color:#00ff88">${m}</span>`).join(' · ');
+                hints.classList.add('show');
+            } else hints.classList.remove('show');
+        } else hints.classList.remove('show');
+    });
+    consoleInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            executeCommand(consoleInput.value.trim());
+            consoleInput.value = '';
+            document.getElementById('command-hints').classList.remove('show');
+        }
+        if (e.key === 'Escape') document.getElementById('console').classList.remove('active');
+    });
+    const chatInput = document.getElementById('chat-input');
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const msg = chatInput.value.trim();
+            if (msg) sendChatMessage(msg);
+            chatInput.value = '';
+            chatInput.classList.remove('active');
+            if (gameStarted) controls.lock();
+        }
+        if (e.key === 'Escape') {
+            chatInput.classList.remove('active');
+            chatInput.value = '';
+            if (gameStarted) controls.lock();
+        }
+    });
+    if (isMobile) setupMobileControls();
+}
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+function onMouseDown(event) {
+    if (!controls.isLocked || !gameStarted) return;
+    const isLeft = event.button === 0, isRight = event.button === 2;
+    if (!isLeft && !isRight) return;
+    raycaster.setFromCamera(mouseVec, camera);
+    const validBlocks = blocks.filter(b => b.parent);
+    const intersects = raycaster.intersectObjects(validBlocks);
+    if (isLeft) {
+        const enemyMeshes = enemies.map(e => e.mesh);
+        const enemyIntersects = raycaster.intersectObjects(enemyMeshes);
+        if (enemyIntersects.length > 0 && (!intersects[0] || enemyIntersects[0].distance < intersects[0].distance)) {
+            const enemy = enemies.find(e => e.mesh === enemyIntersects[0].object);
+            if (enemy) { attackEnemy(enemy); return; }
+        }
+    }
+    if (intersects.length > 0) {
+        const hit = intersects[0], block = hit.object;
+        if (isLeft) {
+            if (settings.gameMode === 'creative') destroyBlock(block);
+            else {
+                block.userData.health -= 1;
+                spawnParticles(block.position, block.userData.type, 3);
+                playSound(200 + Math.random() * 100, 0.05, 'square', 0.1);
+                if (block.userData.health <= 0) destroyBlock(block);
+            }
+        } else if (isRight) {
+            const normal = hit.face.normal.clone();
+            const newPos = block.position.clone().add(normal);
+            const half = CONFIG.worldSize / 2 + 2;
+            if (Math.abs(newPos.x) > half || Math.abs(newPos.z) > half || newPos.y < 0 || newPos.y > 30) return;
+            const ppos = controls.getObject().position;
+            const py = ppos.y - CONFIG.eyeHeight + playerAABB.halfH;
+            if (aabbIntersectsBlock(ppos.x, py, ppos.z, { position: newPos })) { showNotification('❌ Здесь вы стоите!'); return; }
+            if (blocks.length >= CONFIG.maxBlocks) { showNotification('⚠️ Лимит!'); return; }
+            const typeId = BLOCK_TYPES[currentBlockIndex].id;
+            if (settings.gameMode === 'survival') {
+                if (!inventory[typeId] || inventory[typeId] <= 0) { showNotification('❌ Нет блоков!'); return; }
+                inventory[typeId]--;
+                if (inventory[typeId] <= 0) delete inventory[typeId];
+                updateInventoryUI();
+            }
+            const nb = createBlock(newPos.x, newPos.y, newPos.z, typeId);
+            if (typeId === 'water' || typeId === 'lava') scheduleFluidUpdate(nb);
+            scene.add(nb); blocks.push(nb);
+            achievementCounts.blocksPlaced++;
+            checkAchievements();
+            playSound(400 + Math.random() * 100, 0.05, 'sine', 0.1);
+            updateStats(); updateMinimap();
+            if (isHost) broadcastBlockUpdate(newPos.x, newPos.y, newPos.z, typeId);
+        }
+    }
+}
+function destroyBlock(block) {
+    spawnParticles(block.position, block.userData.type, 8);
+    const bx = block.position.x, by = block.position.y, bz = block.position.z;
+    scene.remove(block);
+    const idx = blocks.indexOf(block);
+    if (idx !== -1) blocks.splice(idx, 1);
+    const typeId = block.userData.type;
+    inventory[typeId] = (inventory[typeId] || 0) + 1;
+    if (typeId === 'diamond') achievementCounts.diamondsCollected++;
+    achievementCounts.blocksBroken++;
+    checkAchievements();
+    playSound(150 + Math.random() * 100, 0.08, 'sawtooth', 0.1);
+    updateStats(); updateMinimap(); updateInventoryUI();
+    if (isHost) broadcastBlockRemove(bx, by, bz);
+}
+function onKeyDown(event) {
+    keys[event.code] = true;
+    if (event.code === 'Escape') {
+        if (document.getElementById('console').classList.contains('active')) { document.getElementById('console').classList.remove('active'); return; }
+        if (document.getElementById('craft-menu').classList.contains('active')) { closeCraftMenu(); return; }
+        if (document.getElementById('chat-input').classList.contains('active')) { document.getElementById('chat-input').classList.remove('active'); if (gameStarted) controls.lock(); return; }
+        if (document.getElementById('server-config').classList.contains('active')) { document.getElementById('server-config').classList.remove('active'); return; }
+        if (controls.isLocked) controls.unlock();
+        return;
+    }
+    if (!gameStarted) return;
+    if (event.code.startsWith('Digit')) {
+        const n = parseInt(event.code.replace('Digit', ''));
+        if (n >= 1 && n <= 9) selectBlock(n - 1);
+    }
+    if (event.code === 'KeyF') {
+        isFlyMode = !isFlyMode; velocityY = 0;
+        showNotification(isFlyMode ? '✈️ Полёт' : '🚶 Ходьба');
+        if (isFlyMode) playSound(600, 0.15, 'sine', 0.1);
+    }
+    if (event.code === 'KeyQ' && !event.repeat) eatFood();
+    if (event.code === 'KeyE' && !event.repeat) {
+        if (document.getElementById('craft-menu').classList.contains('active')) closeCraftMenu();
+        else openCraftMenu();
+    }
+    if (event.code === 'KeyT' && !event.repeat) {
+        document.getElementById('console').classList.toggle('active');
+        if (document.getElementById('console').classList.contains('active')) setTimeout(() => document.getElementById('console-input').focus(), 50);
+    }
+    if (event.code === 'KeyY' && !event.repeat) {
+        if (controls.isLocked) controls.unlock();
+        document.getElementById('chat-input').classList.add('active');
+        setTimeout(() => document.getElementById('chat-input').focus(), 50);
+    }
+    if (event.code === 'KeyP' && !event.repeat) {
+        if (controls.isLocked) controls.unlock();
+        document.getElementById('server-config').classList.add('active');
+    }
+}
+function onKeyUp(event) { keys[event.code] = false; }
+function onWheel(event) {
+    if (!gameStarted) return;
+    event.preventDefault();
+    if (event.deltaY > 0) selectBlock((currentBlockIndex + 1) % Math.min(9, BLOCK_TYPES.length));
+    else selectBlock((currentBlockIndex - 1 + Math.min(9, BLOCK_TYPES.length)) % Math.min(9, BLOCK_TYPES.length));
+}
+
+// ============================================================
+// ЕДА
+// ============================================================
+function getFoodList() {
+    const list = [];
+    for (const f of FOOD_TYPES) if (foodInventory[f.id] > 0) list.push(f);
+    return list;
+}
+function eatFood() {
+    if (isEating) return;
+    const list = getFoodList();
+    if (list.length === 0) { showNotification('🍽️ Нет еды! Скрафтите (E)'); return; }
+    const food = list[0];
+    isEating = true; eatingProgress = 0; eatingFoodIndex = FOOD_TYPES.indexOf(food);
+    document.getElementById('eating-overlay').classList.add('show');
+    showNotification(`🍖 Едим ${food.name}...`);
+    playSound(300, 0.1, 'sine', 0.1);
+}
+function updateEating(delta) {
+    if (!isEating) return;
+    eatingProgress += delta;
+    if (eatingProgress >= CONFIG.eatingTime) {
+        const food = FOOD_TYPES[eatingFoodIndex];
+        foodInventory[food.id]--;
+        if (foodInventory[food.id] <= 0) delete foodInventory[food.id];
+        playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + food.heal);
+        playerStats.hunger = Math.min(playerStats.maxHunger, playerStats.hunger + food.hunger);
+        updateVitalsUI();
+        achievementCounts.foodsEaten++;
+        checkAchievements();
+        showNotification(`✅ ${food.name} (+${food.heal} HP, +${food.hunger} 🍖)`);
+        playSound(700, 0.2, 'sine', 0.15);
+        isEating = false; eatingProgress = 0;
+        document.getElementById('eating-overlay').classList.remove('show');
+    }
+}
+
+// ============================================================
+// БОЙ
+// ============================================================
+function attackEnemy(enemy) {
+    const now = performance.now() / 1000;
+    if (now - lastAttackTime < CONFIG.attackCooldown) return;
+    lastAttackTime = now;
+    enemy.health -= 1;
+    playSound(300, 0.1, 'square', 0.15);
+    spawnParticles(enemy.mesh.position, 'brick', 4);
+    const ppos = controls.getObject().position;
+    const dir = new THREE.Vector3().subVectors(enemy.mesh.position, ppos).normalize();
+    enemy.mesh.position.add(dir.multiplyScalar(0.5));
+    if (isHost) broadcastEnemyHit(enemy.id);
+    if (enemy.health <= 0) killEnemy(enemy, true);
+}
+function killEnemy(enemy, byMe = false) {
+    const idx = enemies.indexOf(enemy);
+    if (idx !== -1) {
+        scene.remove(enemy.mesh);
+        enemies.splice(idx, 1);
+        if (byMe) {
+            achievementCounts.enemiesKilled++;
+            checkAchievements();
+            showNotification('⚔️ Враг побеждён!');
+            playSound(500, 0.2, 'sine', 0.15);
+            inventory['gold'] = (inventory['gold'] || 0) + 1;
+            if (Math.random() < 0.3) {
+                const f = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
+                foodInventory[f.id] = (foodInventory[f.id] || 0) + 1;
+            }
+            updateInventoryUI();
+        }
+        updateStats();
+        if (isHost) broadcastEnemyRemove(enemy.id);
+    }
+}
+function damagePlayer(amount, cause = 'unknown') {
+    if (settings.gameMode === 'creative') return;
+    playerStats.health = Math.max(0, playerStats.health - amount);
+    playSound(150, 0.15, 'sawtooth', 0.2);
+    document.getElementById('damage-overlay').classList.add('show');
+    setTimeout(() => document.getElementById('damage-overlay').classList.remove('show'), 300);
+    if (cause === 'fall') {
+        achievementCounts.fallDamageTaken += amount;
+        if (!unlockedAchievements.has('fall_damage')) unlockAchievement('fall_damage');
+    }
+    updateVitalsUI();
+    if (playerStats.health <= 0) respawnPlayer();
+}
+function respawnPlayer() {
+    showNotification('💀 Вы погибли! Респавн...', 3000);
+    playSound(100, 0.5, 'sawtooth', 0.3);
+    playerStats.health = playerStats.maxHealth;
+    playerStats.hunger = playerStats.maxHunger;
+    controls.getObject().position.set(0, 8, 15);
+    velocityY = 0; playerFalling = false; fallStartY = 0; playerOnGround = false;
+    updateVitalsUI();
+}
+
+// ============================================================
+// ЧАСТИЦЫ
+// ============================================================
+function spawnParticles(position, typeId, count = 8) {
+    const type = BLOCK_TYPES.find(t => t.id === typeId) || BLOCK_TYPES[0];
+    for (let i = 0; i < count; i++) {
+        const geo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+        const mat = new THREE.MeshStandardMaterial({ color: type.color, emissive: type.emissive });
+        const p = new THREE.Mesh(geo, mat);
+        p.position.copy(position);
+        p.position.x += (Math.random() - 0.5) * 0.8;
+        p.position.y += (Math.random() - 0.5) * 0.8;
+        p.position.z += (Math.random() - 0.5) * 0.8;
+        p.userData.velocity = new THREE.Vector3((Math.random() - 0.5) * 4, Math.random() * 4, (Math.random() - 0.5) * 4);
+        p.userData.life = 1.0;
+        scene.add(p); particles.push(p);
+    }
+}
+function updateParticles(delta) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.userData.life -= delta * 1.5;
+        if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); continue; }
+        p.userData.velocity.y -= CONFIG.gravity * delta * 0.5;
+        p.position.add(p.userData.velocity.clone().multiplyScalar(delta));
+        p.rotation.x += delta * 5; p.rotation.y += delta * 3;
+        p.scale.setScalar(p.userData.life);
+    }
+}
+
+// ============================================================
+// ВРЕМЯ И ПОГОДА
+// ============================================================
+function updateTimeCycle(delta) {
+    timeOfDay += delta / CONFIG.dayLength;
+    if (timeOfDay > 1) timeOfDay -= 1;
+    const sunAngle = (timeOfDay - 0.25) * Math.PI * 2;
+    const sunHeight = Math.sin(sunAngle);
+    sunLight.position.set(Math.cos(sunAngle) * 80, sunHeight * 100, 50);
+    moonLight.position.set(-Math.cos(sunAngle) * 80, -sunHeight * 100, -50);
+    const daylight = Math.max(0, sunHeight);
+    sunLight.intensity = 0.2 + daylight * 1.1;
+    moonLight.intensity = 0.1 + Math.max(0, -sunHeight) * 0.3;
+    const dayC = new THREE.Color(0x87CEEB), nightC = new THREE.Color(0x0a0a2a), sunsetC = new THREE.Color(0xff6633);
+    let skyC;
+    if (daylight > 0.3) skyC = dayC.clone().lerp(sunsetC, Math.max(0, (0.5 - daylight) * 2));
+    else skyC = nightC.clone().lerp(sunsetC, daylight * 2);
+    if (weather.type === 'rain') skyC.lerp(new THREE.Color(0x444455), weather.intensity * 0.5);
+    else if (weather.type === 'storm') skyC.lerp(new THREE.Color(0x222233), weather.intensity * 0.7);
+    scene.background = skyC;
+    scene.fog.color = skyC;
+    ambientLight.intensity = 0.15 + daylight * 0.5;
+    hemiLight.intensity = 0.1 + daylight * 0.4;
+    const h = Math.floor(timeOfDay * 24), m = Math.floor((timeOfDay * 24 - h) * 60);
+    document.getElementById('time-text').textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const icon = document.getElementById('time-icon'), phase = document.getElementById('time-phase');
+    if (timeOfDay >= 0.2 && timeOfDay < 0.3) { icon.textContent = '🌅'; phase.textContent = 'Рассвет'; }
+    else if (timeOfDay >= 0.3 && timeOfDay < 0.7) { icon.textContent = '☀️'; phase.textContent = 'День'; }
+    else if (timeOfDay >= 0.7 && timeOfDay < 0.8) { icon.textContent = '🌇'; phase.textContent = 'Закат'; }
+    else { icon.textContent = '🌙'; phase.textContent = 'Ночь'; if (!unlockedAchievements.has('night_owl')) unlockAchievement('night_owl'); }
+    if (elapsedTime > 300 && !unlockedAchievements.has('survivor')) unlockAchievement('survivor');
+}
+function updateWeather(delta) {
+    weather.timer -= delta;
+    if (weather.timer <= 0) {
+        const roll = Math.random();
+        if (roll < 0.6) { weather.type = 'clear'; weather.intensity = 0; }
+        else if (roll < 0.85) { weather.type = 'rain'; weather.intensity = 0.5 + Math.random() * 0.5; }
+        else { weather.type = 'storm'; weather.intensity = 0.7 + Math.random() * 0.3; }
+        weather.timer = 30 + Math.random() * 60;
+        const wi = document.getElementById('weather-icon');
+        if (weather.type === 'clear') wi.textContent = '☀️ Ясно';
+        else if (weather.type === 'rain') wi.textContent = '🌧️ Дождь';
+        else wi.textContent = '⛈️ Гроза';
+    }
+    if (weather.type === 'rain' || weather.type === 'storm') {
+        const ppos = controls ? controls.getObject().position : new THREE.Vector3();
+        while (weather.rainParticles.length < 50 * weather.intensity) {
+            const geo = new THREE.SphereGeometry(0.03, 3, 3);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x8899ff, transparent: true, opacity: 0.7 });
+            const rain = new THREE.Mesh(geo, mat);
+            rain.position.set(ppos.x + (Math.random() - 0.5) * 30, ppos.y + 15 + Math.random() * 5, ppos.z + (Math.random() - 0.5) * 30);
+            rain.userData.speed = 20 + Math.random() * 10;
+            scene.add(rain); weather.rainParticles.push(rain);
+        }
+        for (let i = weather.rainParticles.length - 1; i >= 0; i--) {
+            const r = weather.rainParticles[i];
+            r.position.y -= r.userData.speed * delta;
+            if (r.position.y < 0) { scene.remove(r); weather.rainParticles.splice(i, 1); }
+        }
+        if (weather.type === 'storm' && Math.random() < 0.005) {
+            ambientLight.intensity = 1.5;
+            playSound(80, 0.3, 'sawtooth', 0.3);
+            setTimeout(() => { ambientLight.intensity = 0.15 + Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2)) * 0.5; }, 100);
+        }
+    } else {
+        for (const r of weather.rainParticles) scene.remove(r);
+        weather.rainParticles = [];
+    }
+}
+
+// ============================================================
+// ИНВЕНТАРЬ
+// ============================================================
+function initInventory() {
+    BLOCK_TYPES.forEach(t => { inventory[t.id] = 10; });
+    foodInventory = { apple: 5, bread: 2, meat: 1 };
+    buckets = { water: 1, lava: 1 };
+    updateInventoryUI();
+}
+function initHotbar() {
+    const hotbar = document.getElementById('hotbar');
+    hotbar.innerHTML = '';
+    BLOCK_TYPES.slice(0, 9).forEach((type, i) => {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.dataset.index = i;
+        slot.title = type.name;
+        const c = document.createElement('div');
+        c.className = 'slot-color';
+        c.style.background = type.icon;
+        if (type.id === 'neon' || type.id === 'lava') c.style.boxShadow = `inset -3px -3px 6px rgba(0,0,0,0.4), inset 3px 3px 6px rgba(255,255,255,0.3), 0 0 10px ${type.icon}`;
+        slot.appendChild(c);
+        const n = document.createElement('div');
+        n.className = 'slot-number'; n.textContent = i + 1;
+        slot.appendChild(n);
+        const cnt = document.createElement('div');
+        cnt.className = 'slot-count';
+        cnt.id = `slot-count-${i}`;
+        cnt.textContent = inventory[type.id] || 0;
+        slot.appendChild(cnt);
+        const nm = document.createElement('div');
+        nm.className = 'slot-name'; nm.textContent = type.name;
+        slot.appendChild(nm);
+        slot.addEventListener('click', () => selectBlock(i));
+        hotbar.appendChild(slot);
+    });
+    selectBlock(0);
+}
+function updateInventoryUI() {
+    BLOCK_TYPES.slice(0, 9).forEach((type, i) => {
+        const el = document.getElementById(`slot-count-${i}`);
+        if (el) el.textContent = inventory[type.id] || 0;
+    });
+}
+function selectBlock(index) {
+    if (index < 0 || index >= Math.min(9, BLOCK_TYPES.length)) return;
+    currentBlockIndex = index;
+    document.querySelectorAll('.slot').forEach((s, i) => s.classList.toggle('active', i === index));
+    showNotification(`🎨 ${BLOCK_TYPES[index].name}`, 1000);
+    playSound(700, 0.05, 'sine', 0.05);
+}
+
+// ============================================================
+// КРАФТ
+// ============================================================
+function openCraftMenu() {
+    if (controls.isLocked) controls.unlock();
+    isPaused = true;
+    document.getElementById('pause-menu').classList.remove('active');
+    renderCraftMenu();
+    document.getElementById('craft-menu').classList.add('active');
+}
+function closeCraftMenu() {
+    document.getElementById('craft-menu').classList.remove('active');
+    isPaused = false;
+    if (gameStarted) controls.lock();
+}
+function renderCraftMenu() {
+    const grid = document.getElementById('craft-grid');
+    grid.innerHTML = '';
+    CRAFT_RECIPES.forEach(recipe => {
+        const isFood = FOOD_TYPES.some(f => f.id === recipe.result);
+        const have = isFood ? (foodInventory[recipe.result] || 0) : (inventory[recipe.result] || 0);
+        const canCraft = Object.entries(recipe.cost).every(([k, v]) => (inventory[k] || 0) >= v);
+        const card = document.createElement('div');
+        card.className = 'craft-card' + (canCraft ? '' : ' disabled');
+        const type = BLOCK_TYPES.find(t => t.id === recipe.result);
+        const foodType = FOOD_TYPES.find(f => f.id === recipe.result);
+        const displayName = type ? type.name : (foodType ? foodType.name : recipe.name);
+        card.innerHTML = `<h4>${displayName} ×${recipe.amount}</h4><p>${recipe.desc}</p><p class="cost">Нужно: ${Object.entries(recipe.cost).map(([k, v]) => `${k}: ${v}`).join(', ')}</p><p style="color:#66ff66;">В наличии: ${have}</p>`;
+        if (canCraft) card.addEventListener('click', () => { craftItem(recipe); renderCraftMenu(); });
+        grid.appendChild(card);
+    });
+}
+function craftItem(recipe) {
+    for (const [k, v] of Object.entries(recipe.cost)) {
+        inventory[k] -= v;
+        if (inventory[k] <= 0) delete inventory[k];
+    }
+    const isFood = FOOD_TYPES.some(f => f.id === recipe.result);
+    if (isFood) foodInventory[recipe.result] = (foodInventory[recipe.result] || 0) + recipe.amount;
+    else inventory[recipe.result] = (inventory[recipe.result] || 0) + recipe.amount;
+    achievementCounts.crafted++;
+    if (recipe.result === 'cobble') achievementCounts.cobbleMade++;
+    checkAchievements();
+    updateInventoryUI();
+    playSound(800, 0.15, 'sine', 0.15);
+    showNotification(`🔨 Создано: ${recipe.name} ×${recipe.amount}`);
+}
+
+// ============================================================
+// ДОСТИЖЕНИЯ
+// ============================================================
+function initAchievementUI() {
+    const list = document.getElementById('achievement-list');
+    list.innerHTML = '';
+    ACHIEVEMENTS.forEach(a => {
+        const el = document.createElement('div');
+        el.className = 'achievement-item';
+        el.id = `ach-${a.id}`;
+        el.textContent = `${a.icon} ${a.name}`;
+        el.title = a.desc;
+        list.appendChild(el);
+    });
+}
+function unlockAchievement(id) {
+    if (unlockedAchievements.has(id)) return;
+    unlockedAchievements.add(id);
+    const ach = ACHIEVEMENTS.find(a => a.id === id);
+    if (!ach) return;
+    const el = document.getElementById(`ach-${id}`);
+    if (el) { el.classList.add('unlocked'); el.textContent = `✅ ${ach.icon} ${ach.name}`; }
+    const notif = document.getElementById('achievements');
+    notif.classList.add('show');
+    setTimeout(() => notif.classList.remove('show'), 4000);
+    showNotification(`🏆 Достижение: ${ach.name}`, 3000);
+    playSound(900, 0.2, 'sine', 0.15);
+    setTimeout(() => playSound(1200, 0.2, 'sine', 0.15), 100);
+}
+function checkAchievements() {
+    if (achievementCounts.blocksPlaced >= 1) unlockAchievement('first_block');
+    if (achievementCounts.blocksPlaced >= 100) unlockAchievement('builder');
+    if (achievementCounts.blocksBroken >= 50) unlockAchievement('breaker');
+    if (achievementCounts.enemiesKilled >= 1) unlockAchievement('killer');
+    if (achievementCounts.enemiesKilled >= 5) unlockAchievement('killer5');
+    if (achievementCounts.enemiesKilled >= 20) unlockAchievement('killer20');
+    if (achievementCounts.crafted >= 10) unlockAchievement('crafter');
+    if (achievementCounts.diamondsCollected >= 50) unlockAchievement('rich');
+    if (distanceTraveled >= 1000) unlockAchievement('explorer');
+    if (flyTime >= 30) unlockAchievement('flyer');
+    if (achievementCounts.jumps >= 100) unlockAchievement('climber');
+    if (achievementCounts.foodsEaten >= 1) unlockAchievement('chef');
+    if (achievementCounts.cobbleMade >= 1) unlockAchievement('engineer');
+    if (achievementCounts.messagesSent >= 1) unlockAchievement('chatter');
+}
+
+// ============================================================
+// HUD / СТАТИСТИКА
+// ============================================================
+function updateStats() {
+    document.getElementById('stat-blocks').textContent = blocks.length;
+    document.getElementById('stat-enemies').textContent = enemies.length;
+    document.getElementById('stat-players').textContent = 1 + Object.keys(remotePlayers).length;
+    if (controls) {
+        const p = controls.getObject().position;
+        document.getElementById('stat-pos').textContent = `${Math.round(p.x)}, ${Math.round(p.y)}, ${Math.round(p.z)}`;
+        document.getElementById('stat-vy').textContent = velocityY.toFixed(1);
+        document.getElementById('stat-ground').textContent = playerOnGround ? '✓' : '✗';
+    }
+    updatePlayerList();
+}
+function updateVitalsUI() {
+    document.getElementById('health-fill').style.width = (playerStats.health / playerStats.maxHealth * 100) + '%';
+    document.getElementById('hunger-fill').style.width = (playerStats.hunger / playerStats.maxHunger * 100) + '%';
+    document.getElementById('health-value').textContent = `${Math.round(playerStats.health)}/${playerStats.maxHealth}`;
+    document.getElementById('hunger-value').textContent = `${Math.round(playerStats.hunger)}/${playerStats.maxHunger}`;
+}
+function updateFPS() { document.getElementById('stat-fps').textContent = currentFPS; }
+function updatePlayerList() {
+    const container = document.getElementById('player-items');
+    let html = '';
+    if (isHost) html += `<div class="player-item">👑 Вы (хост) [${playerId.substr(0,4)}]</div>`;
+    else if (connections.length > 0) html += `<div class="player-item">🎮 Вы [${playerId.substr(0,4)}]</div>`;
+    for (const id in remotePlayers) {
+        const p = remotePlayers[id];
+        html += `<div class="player-item">🎮 ${p.name || id.substr(0,6)}</div>`;
+    }
+    if (!html) html = '<div style="color:#666;font-size:11px;">Нет игроков</div>';
+    container.innerHTML = html;
+}
+
+// ============================================================
+// МИНИ-КАРТА
+// ============================================================
+function updateMinimap() {
+    const canvas = document.getElementById('minimap');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const scale = w / (CONFIG.worldSize + 10);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(20,20,30,0.9)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(160,32,240,0.15)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+        const x = (w / 5) * i, y = (h / 5) * i;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    blocks.forEach(b => {
+        if (!b.parent) return;
+        const x = w / 2 + b.position.x * scale, y = h / 2 + b.position.z * scale;
+        if (x < 0 || x > w || y < 0 || y > h) return;
+        const type = BLOCK_TYPES.find(t => t.id === b.userData.type);
+        if (type) { ctx.fillStyle = type.icon; ctx.fillRect(x - 2, y - 2, 4, 4); }
+    });
+    enemies.forEach(e => {
+        const x = w / 2 + e.mesh.position.x * scale, y = h / 2 + e.mesh.position.z * scale;
+        if (x < 0 || x > w || y < 0 || y > h) return;
+        ctx.fillStyle = '#ff2222'; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    });
+    npcs.forEach(n => {
+        const x = w / 2 + n.mesh.position.x * scale, y = h / 2 + n.mesh.position.z * scale;
+        if (x < 0 || x > w || y < 0 || y > h) return;
+        ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+    });
+    for (const id in remotePlayers) {
+        const p = remotePlayers[id];
+        const x = w / 2 + p.x * scale, y = h / 2 + p.z * scale;
+        if (x < 0 || x > w || y < 0 || y > h) continue;
+        ctx.fillStyle = '#00aaff'; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    if (controls) {
+        const p = controls.getObject().position;
+        const px = w / 2 + p.x * scale, py = h / 2 + p.z * scale;
+        ctx.fillStyle = '#00ff88'; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + dir.x * 15, py + dir.z * 15); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(160,32,240,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(w/2, h/2, w/2 - 2, 0, Math.PI * 2); ctx.stroke();
+}
+
+// ============================================================
+// МУЛЬТИПЛЕЕР (PeerJS P2P) — ИСПРАВЛЕНА ОШИБКА peer-unavailable
+// ============================================================
+function updateNetStatus(text, online = false) {
+    const el = document.getElementById('net-status');
+    el.textContent = text;
+    el.className = online ? 'net-online' : 'net-offline';
+    document.getElementById('net-info').textContent = text;
+    document.getElementById('net-info').style.color = online ? '#00ff88' : '#ff6666';
+}
+function hostRoom() {
+    const inp = document.getElementById('room-id-input');
+    const id = inp.value.trim() || 'room' + Math.floor(Math.random() * 99999);
+    inp.value = id;
+    if (peer) { try { peer.destroy(); } catch(e){} }
+    peer = new Peer('bw7-' + id);
+    isHost = true;
+    roomId = id;
+    peer.on('open', () => {
+        updateNetStatus(`🌐 Хост: ${id}`, true);
+        showNotification(`🎮 Комната создана: ${id}`);
+        if (!unlockedAchievements.has('multiplayer')) unlockAchievement('multiplayer');
+        reconnectAttempts = 0;
+    });
+    peer.on('connection', (conn) => {
+        conn.on('open', () => {
+            connections.push(conn);
+            showNotification(`👋 Игрок подключился`);
+            conn.send({
+                type: 'worldState',
+                blocks: blocks.filter(b => b.parent).map(b => ({ x: b.position.x, y: b.position.y, z: b.position.z, type: b.userData.type })),
+                enemies: enemies.map(e => ({ id: e.id, type: e.type, x: e.mesh.position.x, y: e.mesh.position.y, z: e.mesh.position.z, health: e.health, maxHealth: e.maxHealth })),
+                timeOfDay, weather: weather.type, seed: worldSeed
+            });
+            updateNetStatus(`🌐 Хост: ${id} (${connections.length})`, true);
+        });
+        conn.on('data', (data) => handleNetData(conn, data, true));
+        conn.on('close', () => {
+            const idx = connections.indexOf(conn);
+            if (idx !== -1) connections.splice(idx, 1);
+            if (remotePlayers[conn.peer]) {
+                scene.remove(remotePlayers[conn.peer].mesh);
+                delete remotePlayers[conn.peer];
+            }
+            updateNetStatus(`🌐 Хост: ${id} (${connections.length})`, true);
+            updateStats();
+        });
+    });
+    peer.on('error', (err) => {
+        updateNetStatus(`❌ ${err.type}`, false);
+        if (err.type === 'unavailable-id') {
+            showNotification('❌ ID комнаты уже занят! Попробуйте другой.');
+        } else if (err.type === 'network') {
+            attemptReconnect();
+        } else {
+            showNotification(`Ошибка: ${err.type}`);
+        }
+    });
+}
+function joinRoom() {
+    const inp = document.getElementById('room-id-input');
+    const id = inp.value.trim();
+    if (!id) { showNotification('⚠️ Введите ID'); return; }
+    if (peer) { try { peer.destroy(); } catch(e){} }
+    peer = new Peer();
+    isHost = false;
+    roomId = id;
+    reconnectAttempts = 0;
+    peer.on('open', () => {
+        attemptJoin(id);
+    });
+    peer.on('error', (err) => {
+        updateNetStatus(`❌ ${err.type}`, false);
+        if (err.type === 'peer-unavailable') {
+            showNotification('❌ Хост не найден. Убедитесь, что комната создана и ID верный.');
+            if (reconnectAttempts < CONFIG.maxReconnectAttempts) {
+                reconnectAttempts++;
+                showNotification(`🔄 Повтор ${reconnectAttempts}/${CONFIG.maxReconnectAttempts} через 2 сек...`);
+                setTimeout(() => attemptJoin(id), 2000);
+            }
+        } else if (err.type === 'network') {
+            attemptReconnect();
+        } else {
+            showNotification(`Ошибка: ${err.type}`);
+        }
+    });
+}
+function attemptJoin(id) {
+    if (!peer || peer.destroyed) return;
+    try {
+        const conn = peer.connect('bw7-' + id);
+        connections.push(conn);
+        conn.on('open', () => {
+            updateNetStatus(`🌐 Подключено: ${id}`, true);
+            showNotification(`✅ Подключено к ${id}`);
+            if (!unlockedAchievements.has('multiplayer')) unlockAchievement('multiplayer');
+            reconnectAttempts = 0;
+        });
+        conn.on('data', (data) => handleNetData(conn, data, false));
+        conn.on('close', () => {
+            updateNetStatus('❌ Соединение закрыто', false);
+            connections = [];
+        });
+    } catch(e) {
+        showNotification('❌ Ошибка подключения');
+    }
+}
+function attemptReconnect() {
+    if (!peer || peer.destroyed) return;
+    if (peer.disconnected) {
+        showNotification('🔄 Переподключение...');
+        peer.reconnect();
+    }
+}
+function disconnectNet() {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (peer) { try { peer.destroy(); } catch(e){} }
+    peer = null;
+    connections = [];
+    for (const id in remotePlayers) {
+        if (remotePlayers[id].mesh) scene.remove(remotePlayers[id].mesh);
+        delete remotePlayers[id];
+    }
+    isHost = false;
+    roomId = null;
+    reconnectAttempts = 0;
+    updateNetStatus('🌐 Оффлайн', false);
+    showNotification('🔌 Отключено');
+    updateStats();
+}
+function broadcast(data) {
+    for (const c of connections) { try { c.send(data); } catch(e) {} }
+}
+function broadcastBlockUpdate(x, y, z, type) { broadcast({ type: 'blockUpdate', x, y, z, blockType: type }); }
+function broadcastBlockRemove(x, y, z) { broadcast({ type: 'blockRemove', x, y, z }); }
+function broadcastEnemyUpdate() {
+    if (!isHost) return;
+    broadcast({
+        type: 'enemiesSync',
+        enemies: enemies.map(e => ({ id: e.id, type: e.type, x: e.mesh.position.x, y: e.mesh.position.y, z: e.mesh.position.z, health: e.health, maxHealth: e.maxHealth }))
+    });
+}
+function broadcastEnemyHit(id) { if (isHost) broadcast({ type: 'enemyHit', id }); }
+function broadcastEnemyRemove(id) { if (isHost) broadcast({ type: 'enemyRemove', id }); }
+function broadcastEnemySpawn(enemy) {
+    if (isHost) broadcast({ type: 'enemySpawn', enemy: { id: enemy.id, type: enemy.type, x: enemy.mesh.position.x, y: enemy.mesh.position.y, z: enemy.mesh.position.z, health: enemy.health, maxHealth: enemy.maxHealth } });
+}
+function broadcastPlayerState() {
+    if (!controls) return;
+    const p = controls.getObject().position;
+    const q = camera.quaternion;
+    broadcast({
+        type: 'playerState', id: playerId, name: playerName,
+        x: p.x, y: p.y, z: p.z,
+        qx: q.x, qy: q.y, qz: q.z, qw: q.w,
+    });
+}
+function sendChatMessage(text) {
+    const msg = { type: 'chat', id: playerId, name: playerName, text };
+    broadcast(msg);
+    addChatMessage('Вы', text);
+    achievementCounts.messagesSent++;
+    checkAchievements();
+}
+function addChatMessage(author, text) {
+    const c = document.getElementById('chat-container');
+    const m = document.createElement('div');
+    m.className = 'chat-msg';
+    m.innerHTML = `<b style="color:#a020f0">${escapeHtml(author)}:</b> ${escapeHtml(text)}`;
+    c.appendChild(m);
+    c.scrollTop = c.scrollHeight;
+    while (c.children.length > 10) c.removeChild(c.firstChild);
+    setTimeout(() => { m.style.opacity = '0.5'; }, 8000);
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function handleNetData(conn, data, hostSide) {
+    switch (data.type) {
+        case 'worldState':
+            blocks.forEach(b => scene.remove(b));
+            blocks = [];
+            data.blocks.forEach(bd => {
+                const b = createBlock(bd.x, bd.y, bd.z, bd.type);
+                scene.add(b); blocks.push(b);
+            });
+            enemies.forEach(e => scene.remove(e.mesh));
+            enemies = [];
+            if (data.enemies) data.enemies.forEach(ed => { spawnEnemyFromData(ed); });
+            if (data.timeOfDay !== undefined) timeOfDay = data.timeOfDay;
+            if (data.weather) weather.type = data.weather;
+            updateStats(); updateMinimap();
+            showNotification(`📥 Мир загружен (${data.blocks.length} блоков, ${enemies.length} врагов)`);
+            break;
+        case 'blockUpdate':
+            const old = getBlockAt(data.x, data.y, data.z);
+            if (old) { const i = blocks.indexOf(old); if (i !== -1) blocks.splice(i, 1); scene.remove(old); }
+            const b = createBlock(data.x, data.y, data.z, data.blockType);
+            scene.add(b); blocks.push(b);
+            updateMinimap();
+            break;
+        case 'blockRemove':
+            const rb = getBlockAt(data.x, data.y, data.z);
+            if (rb) { const i = blocks.indexOf(rb); if (i !== -1) blocks.splice(i, 1); scene.remove(rb); updateMinimap(); }
+            break;
+        case 'playerState':
+            const pid = data.id || conn.peer;
+            if (!remotePlayers[pid]) {
+                const geo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x00aaff, emissive: 0x001133 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.castShadow = true;
+                scene.add(mesh);
+                const hg = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+                const hm = new THREE.MeshStandardMaterial({ color: 0xFFDBAC });
+                const head = new THREE.Mesh(hg, hm);
+                head.position.set(0, 1.1, 0);
+                mesh.add(head);
+                remotePlayers[pid] = { mesh, x: data.x, y: data.y, z: data.z, name: data.name || 'Игрок', id: pid };
+            }
+            const p = remotePlayers[pid];
+            p.mesh.position.set(data.x, data.y - CONFIG.eyeHeight + 0.9, data.z);
+            if (data.qx !== undefined) {
+                const q = new THREE.Quaternion(data.qx, data.qy, data.qz, data.qw);
+                p.mesh.quaternion.copy(q);
+            }
+            p.x = data.x; p.y = data.y; p.z = data.z; p.name = data.name;
+            break;
+        case 'enemiesSync':
+            if (hostSide) return;
+            syncEnemies(data.enemies);
+            break;
+        case 'enemySpawn':
+            if (!enemies.find(e => e.id === data.enemy.id)) spawnEnemyFromData(data.enemy);
+            break;
+        case 'enemyRemove':
+            const e = enemies.find(e => e.id === data.id);
+            if (e) { scene.remove(e.mesh); const i = enemies.indexOf(e); if (i !== -1) enemies.splice(i, 1); updateStats(); }
+            break;
+        case 'enemyHit':
+            const eh = enemies.find(e => e.id === data.id);
+            if (eh) { eh.health -= 1; spawnParticles(eh.mesh.position, 'brick', 4); if (eh.health <= 0) killEnemy(eh, false); }
+            break;
+        case 'chat':
+            addChatMessage(data.name || 'Игрок', data.text);
+            break;
+        case 'timeSync':
+            if (!hostSide) timeOfDay = data.timeOfDay;
+            break;
+    }
+}
+function spawnEnemyFromData(ed) {
+    const type = ed.type;
+    const colors = { zombie: 0x3a5f0b, skeleton: 0xDDDDDD, creeper: 0x00AA00 };
+    const geo = new THREE.BoxGeometry(0.8, 1.6, 0.8);
+    const mat = new THREE.MeshStandardMaterial({ color: colors[type] || 0x3a5f0b, emissive: 0x220000 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(ed.x, ed.y, ed.z);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    scene.add(mesh);
+    const hg = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+    const hm = new THREE.MeshStandardMaterial({ color: type === 'skeleton' ? 0xEEEEEE : type === 'creeper' ? 0x00DD00 : 0x6a8f3a, emissive: 0x330000 });
+    const head = new THREE.Mesh(hg, hm);
+    head.position.set(0, 1.1, 0);
+    mesh.add(head);
+    enemies.push({
+        id: ed.id, mesh, type,
+        health: ed.health, maxHealth: ed.maxHealth,
+        speed: type === 'zombie' ? 1.8 : type === 'skeleton' ? 2.2 : 1.5,
+        damage: type === 'zombie' ? 2 : type === 'skeleton' ? 1 : 4,
+        attackTimer: 0, wanderAngle: Math.random() * Math.PI * 2, wanderTimer: 2 + Math.random() * 3,
+        velocityY: 0, onGround: false, fallStartY: 0, falling: false,
+    });
+    updateStats();
+}
+function syncEnemies(list) {
+    const incoming = new Map(list.map(e => [e.id, e]));
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (!incoming.has(e.id)) { scene.remove(e.mesh); enemies.splice(i, 1); }
+    }
+    for (const ed of list) {
+        let e = enemies.find(x => x.id === ed.id);
+        if (!e) { spawnEnemyFromData(ed); continue; }
+        e.mesh.position.set(ed.x, ed.y, ed.z);
+        e.health = ed.health;
+    }
+    updateStats();
+}
+
+// ============================================================
+// СОХРАНЕНИЕ
+// ============================================================
+function saveWorld() {
+    try {
+        const data = {
+            version: 7, seed: worldSeed, timeOfDay, weather: weather.type,
+            blocks: blocks.filter(b => b.parent).map(b => ({ x: b.position.x, y: b.position.y, z: b.position.z, type: b.userData.type })),
+            playerPos: controls ? { x: controls.getObject().position.x, y: controls.getObject().position.y, z: controls.getObject().position.z } : null,
+            inventory, foodInventory, buckets, playerStats,
+            achievements: Array.from(unlockedAchievements), achievementCounts,
+            gameMode: settings.gameMode,
+        };
+        localStorage.setItem(CONFIG.saveKey, JSON.stringify(data));
+        showNotification('💾 Мир сохранён! (' + data.blocks.length + ' блоков)');
+        playSound(800, 0.15, 'sine', 0.15);
+    } catch(e) { showNotification('❌ Ошибка: ' + e.message); }
+}
+function loadWorld() {
+    try {
+        const raw = localStorage.getItem(CONFIG.saveKey);
+        if (!raw) { showNotification('⚠️ Сохранение не найдено'); return; }
+        const data = JSON.parse(raw);
+        blocks.forEach(b => scene.remove(b)); blocks = [];
+        enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
+        npcs.forEach(n => scene.remove(n.mesh)); npcs = [];
+        worldSeed = data.seed || Date.now();
+        timeOfDay = data.timeOfDay || 0.25;
+        weather.type = data.weather || 'clear';
+        data.blocks.forEach(bd => {
+            const b = createBlock(bd.x, bd.y, bd.z, bd.type);
+            if (bd.type === 'water' || bd.type === 'lava') scheduleFluidUpdate(b);
+            scene.add(b); blocks.push(b);
+        });
+        if (data.playerPos && controls) controls.getObject().position.set(data.playerPos.x, data.playerPos.y, data.playerPos.z);
+        if (data.inventory) inventory = { ...data.inventory };
+        if (data.foodInventory) foodInventory = { ...data.foodInventory };
+        if (data.buckets) buckets = { ...data.buckets };
+        if (data.playerStats) playerStats = { ...playerStats, ...data.playerStats };
+        if (data.achievements) unlockedAchievements = new Set(data.achievements);
+        if (data.achievementCounts) achievementCounts = { ...achievementCounts, ...data.achievementCounts };
+        if (data.gameMode) settings.gameMode = data.gameMode;
+        updateVitalsUI(); updateInventoryUI(); updateStats(); updateMinimap(); updateGameModeIndicator();
+        showNotification('📂 Мир загружен!');
+        playSound(800, 0.15, 'sine', 0.15);
+    } catch(e) { showNotification('❌ Ошибка: ' + e.message); }
+}
+function saveSettings() { try { localStorage.setItem(CONFIG.settingsKey, JSON.stringify(settings)); } catch(e) {} }
+function loadSettings() {
+    try {
+        const raw = localStorage.getItem(CONFIG.settingsKey);
+        if (raw) {
+            const s = JSON.parse(raw);
+            Object.assign(settings, s);
+            document.getElementById('volume-slider').value = settings.volume * 100;
+            document.getElementById('render-slider').value = settings.renderDistance;
+            document.getElementById('fps-toggle').checked = settings.showFPS;
+            document.getElementById('vsync-toggle').checked = settings.vsync;
+            scene.fog.far = settings.renderDistance;
+            updateGameModeIndicator();
+        }
+    } catch(e) {}
+}
+function newWorld() {
+    if (!confirm('Создать новый мир?')) return;
+    worldSeed = Date.now();
+    timeOfDay = 0.25;
+    document.getElementById('pause-menu').classList.remove('active');
+    isPaused = false;
+    playerStats.health = playerStats.maxHealth;
+    playerStats.hunger = playerStats.maxHunger;
+    initInventory();
+    generateWorld();
+}
+function resetAll() {
+    if (!confirm('Сбросить ВСЁ?')) return;
+    localStorage.removeItem(CONFIG.saveKey);
+    worldSeed = Date.now();
+    timeOfDay = 0.25;
+    unlockedAchievements.clear();
+    achievementCounts = { blocksPlaced: 0, blocksBroken: 0, enemiesKilled: 0, crafted: 0, diamondsCollected: 0, fallDamageTaken: 0, jumps: 0, foodsEaten: 0, cobbleMade: 0, messagesSent: 0 };
+    document.getElementById('pause-menu').classList.remove('active');
+    isPaused = false;
+    playerStats.health = playerStats.maxHealth;
+    playerStats.hunger = playerStats.maxHunger;
+    initInventory(); initAchievementUI();
+    generateWorld();
+}
+function toggleGameMode() {
+    settings.gameMode = settings.gameMode === 'survival' ? 'creative' : 'survival';
+    updateGameModeIndicator(); saveSettings();
+    showNotification(settings.gameMode === 'survival' ? '⚔️ Выживание' : '🎨 Креатив');
+}
+function updateGameModeIndicator() {
+    const el = document.getElementById('gamemode-indicator');
+    if (settings.gameMode === 'survival') { el.textContent = '⚔️ ВЫЖИВАНИЕ'; el.className = 'mode-survival'; }
+    else { el.textContent = '🎨 КРЕАТИВ'; el.className = 'mode-creative'; }
+}
+
+// ============================================================
+// МОБИЛЬНОЕ УПРАВЛЕНИЕ
+// ============================================================
+function setupMobileControls() {
+    document.getElementById('mobile-controls').classList.add('active');
+    const joy = document.getElementById('joystick');
+    const knob = document.getElementById('joystick-knob');
+    let active = false;
+    const startJ = (e) => { e.preventDefault(); active = true; const r = joy.getBoundingClientRect(); joy._c = { x: r.left + r.width/2, y: r.top + r.height/2 }; moveJ(e); };
+    const moveJ = (e) => {
+        if (!active) return;
+        e.preventDefault();
+        const t = e.touches ? e.touches[0] : e;
+        const dx = t.clientX - joy._c.x, dy = t.clientY - joy._c.y;
+        const dist = Math.min(Math.hypot(dx, dy), 55);
+        const ang = Math.atan2(dy, dx);
+        knob.style.transform = `translate(calc(-50% + ${Math.cos(ang)*dist}px), calc(-50% + ${Math.sin(ang)*dist}px))`;
+        touchMove.x = Math.cos(ang) * (dist / 55);
+        touchMove.y = Math.sin(ang) * (dist / 55);
+    };
+    const endJ = () => { active = false; knob.style.transform = 'translate(-50%, -50%)'; touchMove.x = 0; touchMove.y = 0; };
+    joy.addEventListener('touchstart', startJ);
+    joy.addEventListener('touchmove', moveJ);
+    joy.addEventListener('touchend', endJ);
+    document.getElementById('btn-jump').addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; setTimeout(() => keys['Space'] = false, 150); });
+    document.getElementById('btn-place').addEventListener('touchstart', (e) => { e.preventDefault(); simulateMouseAction(2); });
+    document.getElementById('btn-break').addEventListener('touchstart', (e) => { e.preventDefault(); simulateMouseAction(0); });
+    document.getElementById('btn-fly').addEventListener('touchstart', (e) => { e.preventDefault(); isFlyMode = !isFlyMode; showNotification(isFlyMode ? '✈️ Полёт' : '🚶 Ходьба'); });
+    document.getElementById('btn-eat').addEventListener('touchstart', (e) => { e.preventDefault(); eatFood(); });
+    let tsx = 0, tsy = 0, touched = false;
+    renderer.domElement.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) { tsx = e.touches[0].clientX; tsy = e.touches[0].clientY; touched = true; }
+    });
+    renderer.domElement.addEventListener('touchmove', (e) => {
+        if (!touched || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - tsx, dy = e.touches[0].clientY - tsy;
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        euler.setFromQuaternion(camera.quaternion);
+        euler.y -= dx * 0.003;
+        euler.x -= dy * 0.003;
+        euler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, euler.x));
+        camera.quaternion.setFromEuler(euler);
+        tsx = e.touches[0].clientX; tsy = e.touches[0].clientY;
+    });
+    renderer.domElement.addEventListener('touchend', () => { touched = false; });
+}
+function simulateMouseAction(button) {
+    raycaster.setFromCamera(mouseVec, camera);
+    const validBlocks = blocks.filter(b => b.parent);
+    const intersects = raycaster.intersectObjects(validBlocks);
+    if (button === 0) {
+        const em = enemies.map(e => e.mesh);
+        const ei = raycaster.intersectObjects(em);
+        if (ei.length > 0 && (!intersects[0] || ei[0].distance < intersects[0].distance)) {
+            const e = enemies.find(x => x.mesh === ei[0].object);
+            if (e) { attackEnemy(e); return; }
+        }
+    }
+    if (intersects.length > 0) {
+        const block = intersects[0].object;
+        if (button === 0) {
+            if (settings.gameMode === 'creative') destroyBlock(block);
+            else {
+                block.userData.health -= 1;
+                spawnParticles(block.position, block.userData.type, 3);
+                if (block.userData.health <= 0) destroyBlock(block);
+            }
+        } else if (button === 2) {
+            const n = intersects[0].face.normal.clone();
+            const np = block.position.clone().add(n);
+            const tid = BLOCK_TYPES[currentBlockIndex].id;
+            if (settings.gameMode === 'survival') {
+                if (!inventory[tid] || inventory[tid] <= 0) return;
+                inventory[tid]--;
+                if (inventory[tid] <= 0) delete inventory[tid];
+                updateInventoryUI();
+            }
+            const nb = createBlock(np.x, np.y, np.z, tid);
+            if (tid === 'water' || tid === 'lava') scheduleFluidUpdate(nb);
+            scene.add(nb); blocks.push(nb);
+            updateStats(); updateMinimap();
+            if (isHost) broadcastBlockUpdate(np.x, np.y, np.z, tid);
+        }
+    }
+}
+
+// ============================================================
+// КОНСОЛЬ
+// ============================================================
+const COMMANDS_LIST = ['help','tp','give','givefood','time','weather','health','hunger','gamemode','clear','killall','spawn','fly','achievements','save','load','host','join','disconnect','players','chat','bucket','seed'];
+function logToConsole(text, color = '#0f0') {
+    const log = document.getElementById('console-log');
+    const line = document.createElement('div');
+    line.textContent = text;
+    line.style.color = color;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    while (log.children.length > 100) log.removeChild(log.firstChild);
+}
+function executeCommand(cmd) {
+    if (!cmd) return;
+    logToConsole('> ' + cmd, '#d4a0ff');
+    const parts = cmd.toLowerCase().split(' ');
+    const command = parts[0];
+    switch(command) {
+        case 'help':
+            logToConsole('=== КОМАНДЫ ===', '#ffaa00');
+            logToConsole('tp x y z | give block N | givefood id N');
+            logToConsole('time 0-1 | weather clear/rain/storm');
+            logToConsole('health N | hunger N | gamemode survival/creative');
+            logToConsole('clear | killall | spawn enemy | fly');
+            logToConsole('achievements | save | load | seed');
+            logToConsole('host <id> | join <id> | disconnect | players');
+            logToConsole('chat <text> | bucket water/lava N');
+            break;
+        case 'tp':
+            if (parts.length >= 4) {
+                const x = parseFloat(parts[1]), y = parseFloat(parts[2]), z = parseFloat(parts[3]);
+                if (!isNaN(x) && !isNaN(y) && !isNaN(z)) { controls.getObject().position.set(x, y + CONFIG.eyeHeight, z); logToConsole('ТП', '#00ff00'); }
+            }
+            break;
+        case 'give':
+            if (parts.length >= 3) {
+                const t = parts[1], n = parseInt(parts[2]);
+                if (BLOCK_TYPES.find(x => x.id === t)) { inventory[t] = (inventory[t]||0) + n; updateInventoryUI(); logToConsole(`+${n} ${t}`, '#00ff00'); }
+            }
+            break;
+        case 'givefood':
+            if (parts.length >= 3) {
+                const t = parts[1], n = parseInt(parts[2]);
+                if (FOOD_TYPES.find(x => x.id === t)) { foodInventory[t] = (foodInventory[t]||0) + n; logToConsole(`+${n} ${t}`, '#00ff00'); }
+            }
+            break;
+        case 'time':
+            if (parts[1]) { const t = parseFloat(parts[1]); if (!isNaN(t) && t >= 0 && t <= 1) { timeOfDay = t; logToConsole('Время: ' + t, '#00ff00'); } }
+            break;
+        case 'weather':
+            if (parts[1] && ['clear','rain','storm'].includes(parts[1])) { weather.type = parts[1]; weather.intensity = parts[1]==='clear'?0:0.8; weather.timer=60; logToConsole('Погода: ' + parts[1], '#00ff00'); }
+            break;
+        case 'health':
+            if (parts[1]) { playerStats.health = clamp(parseInt(parts[1]), 0, playerStats.maxHealth); updateVitalsUI(); logToConsole('HP: ' + playerStats.health, '#00ff00'); }
+            break;
+        case 'hunger':
+            if (parts[1]) { playerStats.hunger = clamp(parseInt(parts[1]), 0, playerStats.maxHunger); updateVitalsUI(); logToConsole('Голод: ' + playerStats.hunger, '#00ff00'); }
+            break;
+        case 'gamemode':
+            if (parts[1] && ['survival','creative'].includes(parts[1])) { settings.gameMode = parts[1]; updateGameModeIndicator(); logToConsole('Режим: ' + parts[1], '#00ff00'); }
+            break;
+        case 'clear':
+            inventory = {}; foodInventory = {}; updateInventoryUI(); logToConsole('Очищено', '#00ff00');
+            break;
+        case 'killall':
+            const kc = enemies.length;
+            enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
+            updateStats(); logToConsole('Убито: ' + kc, '#00ff00');
+            break;
+        case 'spawn':
+            if (parts[1] === 'enemy') {
+                const e = {
+                    id: 'e_' + Math.random().toString(36).substr(2, 9),
+                    type: 'zombie', health: 5, maxHealth: 5,
+                };
+                const p = controls.getObject().position;
+                spawnEnemyFromData({ ...e, x: p.x + 3, y: 1.3, z: p.z });
+                if (isHost) broadcastEnemySpawn(enemies[enemies.length-1]);
+                logToConsole('Враг заспавнен', '#00ff00');
+            }
+            break;
+        case 'fly':
+            isFlyMode = !isFlyMode; velocityY = 0;
+            logToConsole('Полёт: ' + (isFlyMode ? 'вкл' : 'выкл'), '#00ff00');
+            break;
+        case 'achievements':
+            ACHIEVEMENTS.forEach(a => {
+                const u = unlockedAchievements.has(a.id);
+                logToConsole(`${u?'✅':'❌'} ${a.icon} ${a.name}`, u ? '#00ff00' : '#888');
+            });
+            break;
+        case 'save': saveWorld(); logToConsole('Сохранено', '#00ff00'); break;
+        case 'load': loadWorld(); logToConsole('Загружено', '#00ff00'); break;
+        case 'host': document.getElementById('room-id-input').value = parts[1] || ''; hostRoom(); logToConsole('Хостинг...', '#00ff00'); break;
+        case 'join': document.getElementById('room-id-input').value = parts[1] || ''; joinRoom(); logToConsole('Подключение...', '#00ff00'); break;
+        case 'disconnect': disconnectNet(); logToConsole('Отключено', '#00ff00'); break;
+        case 'players':
+            logToConsole('Игроков: ' + (1 + Object.keys(remotePlayers).length), '#00ff00');
+            for (const id in remotePlayers) logToConsole(`  🎮 ${remotePlayers[id].name}`, '#00ff88');
+            break;
+        case 'chat': {
+            const m = parts.slice(1).join(' ');
+            if (m) sendChatMessage(m);
+            break;
+        }
+        case 'bucket':
+            if (parts[1] === 'water') { buckets.water += parseInt(parts[2])||1; logToConsole(`Вёдра воды: ${buckets.water}`, '#00ff00'); }
+            else if (parts[1] === 'lava') { buckets.lava += parseInt(parts[2])||1; logToConsole(`Вёдра лавы: ${buckets.lava}`, '#00ff00'); }
+            break;
+        case 'seed': logToConsole('Seed: ' + worldSeed, '#00ff00'); break;
+        default: logToConsole('Неизвестная: ' + command, '#ff0000');
+    }
+}
+
+// ============================================================
+// ФИЗИКА ИГРОКА
+// ============================================================
+function updatePlayer(delta) {
+    const player = controls.getObject();
+    const pos = player.position;
+    const centerY = pos.y - CONFIG.eyeHeight + playerAABB.halfH;
+    if (!isFlyMode) {
+        velocityY -= CONFIG.gravity * delta;
+        velocityY = Math.max(-CONFIG.maxFallSpeed, velocityY);
+        const dy = velocityY * delta;
+        const newY = centerY + dy;
+        if (dy < 0) {
+            const tc = collidesWithWorld(pos.x, newY, pos.z);
+            if (tc) {
+                const landingY = tc.position.y + 0.5 + playerAABB.halfH + 0.01;
+                if (playerFalling) {
+                    const fallDist = fallStartY - landingY;
+                    if (fallDist > CONFIG.fallDamageThreshold) {
+                        const dmg = Math.floor((fallDist - CONFIG.fallDamageThreshold) * CONFIG.fallDamagePerBlock);
+                        if (dmg > 0) { damagePlayer(dmg, 'fall'); showNotification(`💥 Падение! -${dmg} HP`, 2000); playSound(200, 0.3, 'sawtooth', 0.3); }
+                    }
+                }
+                playerFalling = false; fallStartY = 0;
+                pos.y = landingY + CONFIG.eyeHeight - playerAABB.halfH;
+                velocityY = 0; playerOnGround = true;
+            } else {
+                if (!playerFalling) { playerFalling = true; fallStartY = centerY; }
+                pos.y = newY + CONFIG.eyeHeight - playerAABB.halfH;
+                playerOnGround = false;
+            }
+        } else if (dy > 0) {
+            const tc = collidesWithWorld(pos.x, newY, pos.z);
+            if (tc) { velocityY = 0; playerOnGround = false; }
+            else { pos.y = newY + CONFIG.eyeHeight - playerAABB.halfH; playerOnGround = false; }
+        } else {
+            playerOnGround = !!hasGroundBelow(pos.x, centerY, pos.z);
+        }
+        if (keys['Space'] && playerOnGround && !isFlyMode) {
+            velocityY = CONFIG.jumpSpeed; playerOnGround = false;
+            achievementCounts.jumps++; checkAchievements();
+            playSound(500, 0.1, 'sine', 0.05);
+            keys['Space'] = false;
+        }
+    } else {
+        if (keys['Space']) pos.y += CONFIG.flySpeed * delta;
+        if (keys['ShiftLeft'] || keys['ShiftRight']) pos.y -= CONFIG.flySpeed * delta;
+        flyTime += delta;
+        if (flyTime >= 30) unlockAchievement('flyer');
+        playerOnGround = false; playerFalling = false; velocityY = 0;
+    }
+    const speed = (keys['ShiftLeft'] || keys['ShiftRight']) && !isFlyMode ? CONFIG.runSpeed : CONFIG.walkSpeed;
+    const ms = (isFlyMode ? CONFIG.flySpeed : speed) * delta;
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const rgt = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    fwd.y = 0; rgt.y = 0; fwd.normalize(); rgt.normalize();
+    const mv = new THREE.Vector3();
+    if (keys['KeyW'] || touchMove.y < -0.2) mv.add(fwd);
+    if (keys['KeyS'] || touchMove.y > 0.2) mv.sub(fwd);
+    if (keys['KeyD'] || touchMove.x > 0.2) mv.add(rgt);
+    if (keys['KeyA'] || touchMove.x < -0.2) mv.sub(rgt);
+    if (mv.length() > 0) {
+        mv.normalize();
+        const steps = Math.ceil(ms / CONFIG.playerStep);
+        const sx = (mv.x * ms) / steps, sz = (mv.z * ms) / steps;
+        const startX = pos.x, startZ = pos.z;
+        for (let i = 0; i < steps; i++) {
+            const cy = pos.y - CONFIG.eyeHeight + playerAABB.halfH;
+            const nx = pos.x + sx;
+            if (!collidesWithWorld(nx, cy, pos.z)) pos.x = nx;
+            const nz = pos.z + sz;
+            if (!collidesWithWorld(pos.x, cy, nz)) pos.z = nz;
+        }
+        distanceTraveled += Math.hypot(pos.x - startX, pos.z - startZ);
+        if (distanceTraveled >= 1000) unlockAchievement('explorer');
+    }
+    const limit = CONFIG.worldSize / 2 + 5;
+    pos.x = clamp(pos.x, -limit, limit);
+    pos.z = clamp(pos.z, -limit, limit);
+    const cy2 = pos.y - CONFIG.eyeHeight + playerAABB.halfH;
+    for (const b of blocks) {
+        if (!b.parent) continue;
+        if (b.userData.type === 'lava') {
+            if (Math.abs(b.position.x - pos.x) < 0.7 && Math.abs(b.position.z - pos.z) < 0.7 && Math.abs(b.position.y - cy2) < 1.0) {
+                if (settings.gameMode === 'survival' && Math.random() < 0.1) damagePlayer(1, 'lava');
+            }
+        }
+    }
+    const now = performance.now() / 1000;
+    if (now - playerStats.lastRegen > CONFIG.regenInterval && playerStats.hunger > 15) {
+        if (playerStats.health < playerStats.maxHealth) { playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + 1); updateVitalsUI(); }
+        playerStats.lastRegen = now;
+    }
+    if (now - playerStats.lastHungerDrain > 10) {
+        playerStats.hunger = Math.max(0, playerStats.hunger - 1);
+        updateVitalsUI(); playerStats.lastHungerDrain = now;
+        if (playerStats.hunger === 0) damagePlayer(1, 'hunger');
+    }
+    const fi = document.getElementById('fall-indicator');
+    if (playerFalling && !playerOnGround) {
+        const fd = fallStartY - cy2;
+        if (fd > CONFIG.fallDamageThreshold) fi.classList.add('show');
+        else fi.classList.remove('show');
+    } else fi.classList.remove('show');
+    updateStats();
+}
+
+// ============================================================
+// ФИЗИКА ВРАГОВ
+// ============================================================
+function updateEnemies(delta) {
+    const ppos = controls ? controls.getObject().position : new THREE.Vector3();
+    const pcy = ppos.y - CONFIG.eyeHeight + playerAABB.halfH;
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (!e.mesh.parent) continue;
+        const eh = 0.8, ew = 0.4;
+        e.velocityY -= CONFIG.gravity * delta;
+        e.velocityY = Math.max(-CONFIG.maxFallSpeed, e.velocityY);
+        const dy = e.velocityY * delta;
+        const ny = e.mesh.position.y + dy;
+        let bBelow = null;
+        for (const b of blocks) {
+            if (!b.parent) continue;
+            const t = BLOCK_TYPES.find(x => x.id === b.userData.type);
+            if (!t || !t.solid) continue;
+            if (Math.abs(b.position.x - e.mesh.position.x) < (ew + 0.5) && Math.abs(b.position.z - e.mesh.position.z) < (ew + 0.5)) {
+                const top = b.position.y + 0.5;
+                if (top <= ny - eh + 0.3 && top > (bBelow ? bBelow.position.y + 0.5 : -100)) bBelow = b;
+            }
+        }
+        if (dy < 0) {
+            if (bBelow) {
+                const landingY = bBelow.position.y + 0.5 + eh;
+                if (e.falling) {
+                    const fd = e.fallStartY - landingY;
+                    if (fd > CONFIG.mobFallDamageThreshold) {
+                        const dmg = Math.floor((fd - CONFIG.mobFallDamageThreshold) * 0.5);
+                        e.health -= dmg;
+                        if (e.health <= 0) {
+                            scene.remove(e.mesh); enemies.splice(i, 1);
+                            if (isHost) broadcastEnemyRemove(e.id);
+                            achievementCounts.enemiesKilled++; updateStats();
+                            continue;
+                        }
+                    }
+                }
+                e.mesh.position.y = landingY;
+                e.velocityY = 0; e.onGround = true; e.falling = false; e.fallStartY = 0;
+            } else {
+                if (!e.falling) { e.falling = true; e.fallStartY = e.mesh.position.y; }
+                e.mesh.position.y = ny; e.onGround = false;
+            }
+        } else if (dy > 0) { e.mesh.position.y = ny; e.onGround = false; }
+        const dist = e.mesh.position.distanceTo(new THREE.Vector3(ppos.x, pcy, ppos.z));
+        if (dist < 15 && dist > 1.5 && settings.gameMode === 'survival') {
+            const dir = new THREE.Vector3(ppos.x - e.mesh.position.x, 0, ppos.z - e.mesh.position.z).normalize();
+            const nx = e.mesh.position.x + dir.x * e.speed * delta;
+            const nz = e.mesh.position.z + dir.z * e.speed * delta;
+            let cX = true, cZ = true;
+            for (const b of blocks) {
+                if (!b.parent) continue;
+                const t = BLOCK_TYPES.find(x => x.id === b.userData.type);
+                if (!t || !t.solid) continue;
+                if (Math.abs(b.position.x - nx) < 0.8 && Math.abs(b.position.y - e.mesh.position.y) < 1.6 && Math.abs(b.position.z - e.mesh.position.z) < 0.8) cX = false;
+                if (Math.abs(b.position.x - e.mesh.position.x) < 0.8 && Math.abs(b.position.y - e.mesh.position.y) < 1.6 && Math.abs(b.position.z - nz) < 0.8) cZ = false;
+            }
+            if (cX) e.mesh.position.x = nx;
+            if (cZ) e.mesh.position.z = nz;
+            e.mesh.lookAt(ppos.x, e.mesh.position.y, ppos.z);
+        } else {
+            e.wanderTimer -= delta;
+            if (e.wanderTimer <= 0) { e.wanderAngle = Math.random() * Math.PI * 2; e.wanderTimer = 2 + Math.random() * 3; }
+            const nx = e.mesh.position.x + Math.cos(e.wanderAngle) * 0.5 * delta;
+            const nz = e.mesh.position.z + Math.sin(e.wanderAngle) * 0.5 * delta;
+            let blocked = false;
+            for (const b of blocks) {
+                if (!b.parent) continue;
+                const t = BLOCK_TYPES.find(x => x.id === b.userData.type);
+                if (!t || !t.solid) continue;
+                if (Math.abs(b.position.x - nx) < 0.8 && Math.abs(b.position.y - e.mesh.position.y) < 1.6 && Math.abs(b.position.z - nz) < 0.8) { blocked = true; break; }
+            }
+            if (!blocked) { e.mesh.position.x = nx; e.mesh.position.z = nz; }
+        }
+        const limit = CONFIG.worldSize / 2;
+        e.mesh.position.x = clamp(e.mesh.position.x, -limit, limit);
+        e.mesh.position.z = clamp(e.mesh.position.z, -limit, limit);
+        e.attackTimer -= delta;
+        if (dist < 1.8 && e.attackTimer <= 0 && settings.gameMode === 'survival') { damagePlayer(e.damage, 'enemy'); e.attackTimer = 1.5; }
+        const hp = e.health / e.maxHealth;
+        e.mesh.material.color.setHSL(0.3 * hp, 0.7, 0.3);
+    }
+}
+function updateNPCs(delta) {
+    npcs.forEach(n => {
+        n.wanderTimer -= delta;
+        if (n.wanderTimer <= 0) {
+            n.targetPos.set(n.homePos.x + (Math.random()-0.5)*8, n.homePos.y, n.homePos.z + (Math.random()-0.5)*8);
+            n.wanderTimer = 3 + Math.random() * 4;
+        }
+        const d = new THREE.Vector3().subVectors(n.targetPos, n.mesh.position);
+        if (d.length() > 0.3) {
+            d.normalize();
+            const nx = n.mesh.position.x + d.x * n.speed * delta;
+            const nz = n.mesh.position.z + d.z * n.speed * delta;
+            let blocked = false;
+            for (const b of blocks) {
+                if (!b.parent) continue;
+                const t = BLOCK_TYPES.find(x => x.id === b.userData.type);
+                if (!t || !t.solid) continue;
+                if (Math.abs(b.position.x - nx) < 0.6 && Math.abs(b.position.y - n.mesh.position.y) < 1.6 && Math.abs(b.position.z - nz) < 0.6) { blocked = true; break; }
+            }
+            if (!blocked) { n.mesh.position.x = nx; n.mesh.position.z = nz; } else n.wanderTimer = 0;
+        }
+    });
+}
+
+// ============================================================
+// ИГРОВОЙ ЦИКЛ (с неограниченным FPS)
+// ============================================================
+function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now();
+    const delta = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+    fpsCounter++; fpsTimer += delta;
+    if (fpsTimer >= 0.5) { currentFPS = Math.round(fpsCounter / fpsTimer); fpsCounter = 0; fpsTimer = 0; updateFPS(); }
+    if (gameStarted && !isPaused && controls.isLocked) {
+        elapsedTime += delta;
+        updatePlayer(delta);
+        updateEating(delta);
+    }
+    if (gameStarted) {
+        updateTimeCycle(delta);
+        updateWeather(delta);
+        updateEnemies(delta);
+        updateNPCs(delta);
+        updateParticles(delta);
+        updateFluids(delta);
+        updateBlockIndicator();
+        if (sunLight && controls) { sunLight.target.position.copy(controls.getObject().position); sunLight.target.updateMatrixWorld(); }
+        if (Math.floor(now / 250) !== Math.floor((now - delta * 1000) / 250)) updateMinimap();
+        // Сетевая синхронизация
+        if (connections.length > 0 && now - lastNetSend > 50) {
+            broadcastPlayerState();
+            lastNetSend = now;
+        }
+        if (isHost && connections.length > 0 && now - lastEnemySync > CONFIG.enemySyncInterval * 1000) {
+            broadcastEnemyUpdate();
+            broadcast({ type: 'timeSync', timeOfDay });
+            lastEnemySync = now;
+        }
+    }
+    // Рендер без V-Sync (если V-Sync выключен в настройках)
+    if (settings.vsync) {
+        renderer.render(scene, camera);
+    } else {
+        // Принудительный рендер без ожидания V-Sync
+        renderer.render(scene, camera);
+    }
+}
+function updateBlockIndicator() {
+    if (!gameStarted || !controls.isLocked) { document.getElementById('block-indicator').classList.remove('show'); return; }
+    raycaster.setFromCamera(mouseVec, camera);
+    const valid = blocks.filter(b => b.parent);
+    const ints = raycaster.intersectObjects(valid);
+    const ind = document.getElementById('block-indicator');
+    if (ints.length > 0) {
+        const b = ints[0].object;
+        const t = BLOCK_TYPES.find(x => x.id === b.userData.type);
+        if (t) {
+            const h = b.userData.health !== undefined ? ` [${b.userData.health}❤]` : '';
+            ind.textContent = `${t.name}${h} (${b.position.x.toFixed(0)}, ${b.position.y.toFixed(0)}, ${b.position.z.toFixed(0)})`;
+            ind.classList.add('show');
+        }
+    } else ind.classList.remove('show');
+}
+
+// ============================================================
+// СТАРТ
+// ============================================================
+function startGame() {
+    document.getElementById('start-screen').classList.add('hidden');
+    gameStarted = true;
+    gameStartTime = performance.now();
+    lastTime = performance.now();
+    if (localStorage.getItem(CONFIG.saveKey)) showNotification('💾 Найдено сохранение! ESC → Загрузить', 4000);
+    setTimeout(() => { controls.lock(); }, 300);
+}
+
+// ============================================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================================
+function init() {
+    initScene();
+    initHotbar();
+    initInventory();
+    updateVitalsUI();
+    updateGameModeIndicator();
+    generateWorld();
+    animate();
+    setInterval(() => { if (gameStarted && !isPaused) { try { saveWorld(); } catch(e) {} } }, 60000);
+    window.game = {
+        scene, camera, renderer, controls, blocks, enemies, npcs, inventory, foodInventory, buckets,
+        playerStats, settings, CONFIG, COMMANDS_LIST,
+        getPlayerState: () => ({ playerOnGround, playerFalling, velocityY, fallStartY }),
+        getNet: () => ({ isHost, roomId, connections: connections.length, players: Object.keys(remotePlayers).length }),
+        commands: COMMANDS_LIST,
+    };
+}
+init();
+</script>
+</body>
+</html>
